@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <DataSets><DataSet Name="Items"><Fields><Field Name="Category"><DataField>Category</DataField></Field><Field Name="Region"><DataField>Region</DataField></Field><Field Name="Segment"><DataField>Segment</DataField></Field><Field Name="Name"><DataField>Name</DataField></Field><Field Name="Amount"><DataField>Amount</DataField></Field></Fields></DataSet></DataSets>
+  <ReportSections><ReportSection>
+    <Body><ReportItems><Tablix Name="Items">
+      <TablixBody><TablixColumns><TablixColumn><Width>12cm</Width></TablixColumn></TablixColumns><TablixRows>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>Nested groups</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Category: " &amp; Fields!Category.Value &amp; " (" &amp; CountRows() &amp; ", Sum=" &amp; Sum(Fields!Amount.Value) &amp; ")"</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Region: " &amp; Fields!Region.Value &amp; " (" &amp; CountRows() &amp; ", Sum=" &amp; Sum(Fields!Amount.Value) &amp; ")"</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Segment: " &amp; Fields!Segment.Value &amp; " (" &amp; CountRows() &amp; ", Sum=" &amp; Sum(Fields!Amount.Value) &amp; ")"</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Detail: " &amp; Fields!Name.Value</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Subtotal: " &amp; Fields!Category.Value &amp; " = " &amp; Sum(Fields!Amount.Value)</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+      </TablixRows></TablixBody>
+      <TablixRowHierarchy><TablixMembers><TablixMember><KeepWithGroup>After</KeepWithGroup></TablixMember><TablixMember><Group Name="CategoryGroup"><GroupExpressions><GroupExpression>=Fields!Category.Value</GroupExpression></GroupExpressions></Group><TablixMembers><TablixMember><Group Name="RegionGroup"><GroupExpressions><GroupExpression>=Fields!Region.Value</GroupExpression></GroupExpressions></Group><TablixMembers><TablixMember><Group Name="SegmentGroup"><GroupExpressions><GroupExpression>=Fields!Segment.Value</GroupExpression></GroupExpressions></Group></TablixMember></TablixMembers></TablixMember></TablixMembers></TablixMember></TablixMembers></TablixRowHierarchy>
+      <DataSetName>Items</DataSetName>
+    </Tablix></ReportItems></Body>
+    <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>
+  </ReportSection></ReportSections>
+</Report>

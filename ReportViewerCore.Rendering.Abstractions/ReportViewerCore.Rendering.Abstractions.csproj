@@ -8,7 +8,16 @@
     <Description>Backend-neutral contracts and primitives for cross-platform ReportViewer rendering.</Description>
     <PackageTags>reportviewer;rdlc;rendering;cross-platform</PackageTags>
     <RepositoryUrl>https://github.com/jennarinmeethong/reportviewercore</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\docs\cross-platform-v2.md" Pack="true" PackagePath="README.md" />
+    <None Include="..\docs\cross-platform-v2-checklist.md" Pack="true" PackagePath="cross-platform-v2-checklist.md" />
+  </ItemGroup>
 </Project>

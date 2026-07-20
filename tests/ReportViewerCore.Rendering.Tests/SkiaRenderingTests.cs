@@ -541,6 +541,85 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
+	public void Rdlc_engine_resolves_first_last_and_count_scoped_aggregates()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "scoped-aggregates.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Name = "Alpha", Amount = 10 },
+				new { Name = "Beta", Amount = 0 },
+				new { Name = "Gamma", Amount = 3 }
+			}
+		}));
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		html.Should().Contain("First=Alpha Last=Gamma Count=3");
+	}
+
+	[Fact]
+	public void Rdlc_engine_omits_items_hidden_by_allow_listed_visibility_expression()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "visibility.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(
+			new Dictionary<string, IEnumerable> { ["Items"] = new[] { new { Name = "Hidden row" } } },
+			new Dictionary<string, object?> { ["HideDetails"] = true }));
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		html.Should().Contain("Visible content").And.Contain("Tablix header").And.NotContain("Hidden content").And.NotContain("Hidden tablix content");
+
+		using FileStream expandedDefinition = File.OpenRead(fixturePath);
+		ReportDocument expandedDocument = new RdlcReportEngine().CreateDocument(expandedDefinition, new RdlcDataContext(
+			new Dictionary<string, IEnumerable> { ["Items"] = new[] { new { Name = "Expanded row" } } },
+			new Dictionary<string, object?> { ["HideDetails"] = false }));
+		string expandedHtml = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(expandedDocument, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		expandedHtml.Should().Contain("Hidden content").And.Contain("Hidden tablix content");
+	}
+
+	[Fact]
+	public void Rdlc_engine_renders_three_nested_row_group_levels()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-grouped-tablix.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = "A", Region = "X", Segment = "I", Name = "Alpha", Amount = 10 },
+				new { Category = "A", Region = "X", Segment = "II", Name = "Beta", Amount = 2 },
+				new { Category = "A", Region = "Y", Segment = "I", Name = "Gamma", Amount = 3 },
+				new { Category = "B", Region = "X", Segment = "I", Name = "Delta", Amount = 4 }
+			}
+		}));
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		html.Should().Contain("Category: A (3, Sum=15)").And.Contain("Region: X (2, Sum=12)").And.Contain("Region: Y (1, Sum=3)").And.Contain("Segment: I (1, Sum=10)").And.Contain("Segment: II (1, Sum=2)").And.Contain("Category: B (1, Sum=4)").And.Contain("Detail: Delta").And.Contain("Subtotal: B = 4");
+	}
+
+	[Fact]
+	public void Rdlc_engine_starts_grouped_scopes_on_explicit_page_breaks()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "grouped-pagebreak.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = "A", Name = "Alpha", Amount = 1 },
+				new { Category = "B", Name = "Beta", Amount = 2 }
+			}
+		}));
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		document.Pages.Should().HaveCount(2);
+		html.Should().Contain("Detail: Alpha").And.Contain("Detail: Beta");
+	}
+
+	[Fact]
 	public void Rdlc_engine_resolves_embedded_images_through_the_injected_resolver()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "image.rdlc");

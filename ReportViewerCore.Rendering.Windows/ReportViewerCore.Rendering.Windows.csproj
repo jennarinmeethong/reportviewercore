@@ -9,9 +9,18 @@
     <Description>Windows-only WinForms display adapter over the shared Skia ReportViewer renderer.</Description>
     <PackageTags>reportviewer;rdlc;winforms;windows;cross-platform</PackageTags>
     <RepositoryUrl>https://github.com/jennarinmeethong/reportviewercore</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\docs\cross-platform-v2.md" Pack="true" PackagePath="README.md" />
+    <None Include="..\docs\cross-platform-v2-checklist.md" Pack="true" PackagePath="cross-platform-v2-checklist.md" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ReportViewerCore.Rendering.Abstractions\ReportViewerCore.Rendering.Abstractions.csproj" />
     <ProjectReference Include="..\ReportViewerCore.Rendering.Skia\ReportViewerCore.Rendering.Skia.csproj" />

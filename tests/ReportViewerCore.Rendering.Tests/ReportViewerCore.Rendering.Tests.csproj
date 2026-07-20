@@ -36,5 +36,9 @@
     <None Include="..\fixtures\engine\composite-expression.rdlc" Link="fixtures\engine\composite-expression.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\sorted-tablix.rdlc" Link="fixtures\engine\sorted-tablix.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\grouped-tablix.rdlc" Link="fixtures\engine\grouped-tablix.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\scoped-aggregates.rdlc" Link="fixtures\engine\scoped-aggregates.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\visibility.rdlc" Link="fixtures\engine\visibility.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\nested-grouped-tablix.rdlc" Link="fixtures\engine\nested-grouped-tablix.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\grouped-pagebreak.rdlc" Link="fixtures\engine\grouped-pagebreak.rdlc" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

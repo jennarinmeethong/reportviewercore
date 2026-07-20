@@ -484,19 +484,49 @@ namespace Microsoft.Reporting.WinForms
 		{
 			lock (m_syncObject)
 			{
-				byte[] definition = m_processingHost.Catalog.GetReportDefinition(m_processingHost.ItemContext);
-				var dataSets = new Dictionary<string, IEnumerable>(StringComparer.OrdinalIgnoreCase);
-				foreach (ReportDataSource source in DataSources)
+				try
 				{
-					if (source.Value != null)
+					byte[] definition = m_processingHost.Catalog.GetReportDefinition(m_processingHost.ItemContext);
+					var dataSets = new Dictionary<string, IEnumerable>(StringComparer.OrdinalIgnoreCase);
+					foreach (ReportDataSource source in DataSources)
 					{
-						dataSets[source.Name] = ToPortableDataSet(source.Value);
+						if (source.Value != null)
+						{
+							dataSets[source.Name] = ToPortableDataSet(source.Value);
+						}
+					}
+
+					using (var stream = new MemoryStream(definition, writable: false))
+					{
+						return new PortableEngine().CreateDocument(stream, new PortableContext(dataSets, new Dictionary<string, object>(m_portableParameters, StringComparer.OrdinalIgnoreCase), new PortableImageResolver()));
 					}
 				}
-
-				using (var stream = new MemoryStream(definition, writable: false))
+				catch (NotSupportedException)
 				{
-					return new PortableEngine().CreateDocument(stream, new PortableContext(dataSets, new Dictionary<string, object>(m_portableParameters, StringComparer.OrdinalIgnoreCase), new PortableImageResolver()));
+					return CreatePortableDocumentFromLegacyRpl();
+				}
+				catch (InvalidDataException)
+				{
+					return CreatePortableDocumentFromLegacyRpl();
+				}
+			}
+		}
+
+		private PortableDocument CreatePortableDocumentFromLegacyRpl()
+		{
+			const string deviceInfo = "<DeviceInfo><MeasureItems>true</MeasureItems><SecondaryStreams>Embedded</SecondaryStreams><StreamNames>false</StreamNames><RPLVersion>10.6</RPLVersion></DeviceInfo>";
+			using (var streamCache = new StreamCache())
+			{
+				Warning[] warnings;
+				InternalRender("RPL", allowInternalRenderers: true, deviceInfo, PageCountMode.Actual, streamCache.StreamCallback, out warnings);
+				using (Stream rplStream = streamCache.GetMainStream(detach: false))
+				{
+					if (rplStream == null)
+					{
+						throw new InvalidDataException("The legacy RPL renderer returned no main stream.");
+					}
+
+					return RplPortableDocumentAdapter.Adapt(rplStream);
 				}
 			}
 		}

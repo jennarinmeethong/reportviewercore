@@ -9,7 +9,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="..\tests\fixtures\engine\simple.rdlc" Link="Report.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\tests\fixtures\engine\subreport-parent.rdlc" Link="Parent.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\tests\fixtures\engine\subreport-parameter-child.rdlc" Link="Child.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="..\Microsoft.ReportViewer.WinForms\Microsoft.ReportViewer.WinForms.csproj" />
   </ItemGroup>
 </Project>
