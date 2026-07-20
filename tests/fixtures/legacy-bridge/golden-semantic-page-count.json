@@ -1,0 +1,15 @@
+{
+  "legacyBridge": {
+    "expectedPageCount": 1,
+    "requiredText": [
+      "Windows bridge",
+      "Shared Skia backend"
+    ]
+  },
+  "winFormsLegacyBridge": {
+    "expectedPageCount": 1,
+    "requiredText": [
+      "RPL fallback proof"
+    ]
+  }
+}

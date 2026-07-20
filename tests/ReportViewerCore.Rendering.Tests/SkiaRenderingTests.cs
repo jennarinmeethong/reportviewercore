@@ -1,5 +1,6 @@
 using FluentAssertions;
 using System.Collections;
+using System.Globalization;
 using System.IO.Compression;
 using ReportViewerCore.Engine;
 using ReportViewerCore.Headless;
@@ -44,6 +45,16 @@ public sealed class SkiaRenderingTests
 		shaped.Glyphs.Should().NotBeEmpty();
 		shaped.AdvanceX.Should().BeGreaterThan(0);
 		metrics.LineHeight.Should().BeGreaterThan(0);
+	}
+
+	[Fact]
+	public void Skia_font_resolver_requires_existing_registered_font_files()
+	{
+		using var fonts = new SkiaFontResolver();
+		string missingFont = Path.Combine(Path.GetTempPath(), $"reportviewercore-missing-{Guid.NewGuid():N}.ttf");
+
+		Action register = () => fonts.RegisterFont("MissingFont", missingFont);
+		register.Should().Throw<FileNotFoundException>();
 	}
 
 	[Fact]
@@ -172,6 +183,29 @@ public sealed class SkiaRenderingTests
 		act.Should().Throw<ArgumentException>().WithMessage("*Only http, https, mailto, and relative URLs are supported.*");
 	}
 
+	[Theory]
+	[InlineData("javascript:alert(1)")]
+	[InlineData("file:///tmp/report")]
+	[InlineData("http://[invalid")]
+	public void Shared_render_url_policy_rejects_unsafe_or_malformed_links(string url)
+	{
+		Action act = () => RenderUrlPolicy.ValidateHyperlink(url);
+
+		act.Should().Throw<ArgumentException>().WithMessage("*Only http, https, mailto, and relative URLs are supported.*");
+	}
+
+	[Theory]
+	[InlineData("https://example.com/report")]
+	[InlineData("mailto:reports@example.com")]
+	[InlineData("/reports/detail")]
+	[InlineData("detail.rdlc")]
+	public void Shared_render_url_policy_accepts_supported_links(string url)
+	{
+		Action act = () => RenderUrlPolicy.ValidateHyperlink(url);
+
+		act.Should().NotThrow();
+	}
+
 	[Fact]
 	public void Excel_openxml_renderer_writes_workbook_and_hyperlink_parts()
 	{
@@ -183,6 +217,7 @@ public sealed class SkiaRenderingTests
 				canvas.DrawText("Excel text", new RenderPoint(10, 20), new FontRequest("Arial", 12), RenderColor.Black);
 				canvas.DrawText("縦", new RenderPoint(80, 20), new FontRequest("Arial", 12), RenderColor.Black, TextDirection.TopToBottom);
 				canvas.DrawHyperlink("Docs", new RenderPoint(10, 40), new FontRequest("Arial", 12), RenderColor.Black, "https://example.com");
+				canvas.DrawHyperlink("Mail", new RenderPoint(10, 60), new FontRequest("Arial", 12), RenderColor.Black, "mailto:reports@example.com");
 			})
 		});
 
@@ -195,7 +230,62 @@ public sealed class SkiaRenderingTests
 		archive.GetEntry("xl/worksheets/sheet1.xml").Should().NotBeNull();
 		archive.GetEntry("xl/worksheets/_rels/sheet1.xml.rels").Should().NotBeNull();
 		using var sheetReader = new StreamReader(archive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
-		sheetReader.ReadToEnd().Should().Contain("Excel text").And.Contain("s=\"1\"").And.Contain("hyperlinks");
+		string sheet = sheetReader.ReadToEnd();
+		sheet.Should().Contain("Excel text").And.Contain("s=\"1\"").And.Contain("hyperlinks").And.Contain("ref=\"A3\"").And.Contain("ref=\"A4\"");
+		using var relationshipReader = new StreamReader(archive.GetEntry("xl/worksheets/_rels/sheet1.xml.rels")!.Open());
+		relationshipReader.ReadToEnd().Should().Contain("https://example.com").And.Contain("mailto:reports@example.com");
+	}
+
+	[Fact]
+	public void Openxml_renderers_reject_unsafe_hyperlinks()
+	{
+		var report = new ReportDocument(new[]
+		{
+			new ReportPage(new RenderSize(100, 50), canvas => canvas.DrawHyperlink("Unsafe", new RenderPoint(0, 20), new FontRequest("Arial", 10), RenderColor.Black, "javascript:alert(1)"))
+		});
+
+		Action excelRender = () => new ExcelOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		Action wordRender = () => new WordOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		excelRender.Should().Throw<ArgumentException>().WithMessage("*Only http, https, mailto, and relative URLs are supported.*");
+		wordRender.Should().Throw<ArgumentException>().WithMessage("*Only http, https, mailto, and relative URLs are supported.*");
+	}
+
+	[Fact]
+	public void Openxml_renderers_preserve_text_color()
+	{
+		var report = new ReportDocument(new[]
+		{
+			new ReportPage(new RenderSize(240, 120), canvas => canvas.DrawText("Colored", new RenderPoint(10, 20), new FontRequest("Arial", 12), new RenderColor(18, 52, 86)))
+		});
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var sheetReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		sheetReader.ReadToEnd().Should().Contain("FF123456").And.Contain("rFont").And.Contain("val=\"12\"");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var documentReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		documentReader.ReadToEnd().Should().Contain("w:val=\"123456\"").And.Contain("w:left=\"200\"").And.Contain("w:ascii=\"Arial\"").And.Contain("w:val=\"24\"");
+	}
+
+	[Fact]
+	public void Openxml_renderers_preserve_leading_and_trailing_text_spaces()
+	{
+		var report = new ReportDocument(new[]
+		{
+			new ReportPage(new RenderSize(240, 120), canvas => canvas.DrawText("  padded  ", new RenderPoint(10, 20), new FontRequest("Arial", 12), RenderColor.Black))
+		});
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var sheetReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		sheetReader.ReadToEnd().Should().Contain("xml:space=\"preserve\"");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var documentReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		documentReader.ReadToEnd().Should().Contain("xml:space=\"preserve\"");
 	}
 
 	[Fact]
@@ -221,6 +311,8 @@ public sealed class SkiaRenderingTests
 		wordArchive.GetEntry("word/media/image1.png").Should().NotBeNull();
 		wordArchive.GetEntry("word/document.xml").Should().NotBeNull();
 		wordArchive.GetEntry("word/_rels/document.xml.rels").Should().NotBeNull();
+		using var imageDocumentReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		imageDocumentReader.ReadToEnd().Should().Contain("w:left=\"200\"");
 	}
 
 	[Fact]
@@ -268,18 +360,19 @@ public sealed class SkiaRenderingTests
 			{
 				canvas.FillRectangle(new RenderRect(0, 0, 10, 10), RenderColor.Black);
 				canvas.DrawLine(new RenderPoint(0, 0), new RenderPoint(20, 10), RenderColor.Black, 1);
+				canvas.DrawLine(new RenderPoint(20, 10), new RenderPoint(0, 0), RenderColor.Black, 1);
 			})
 		});
 
 		ReportOutput excel = renderer.Render(report, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
 		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
 		using var drawing = new StreamReader(excelArchive.GetEntry("xl/drawings/drawing1.xml")!.Open());
-		drawing.ReadToEnd().Should().Contain("sp").And.Contain("prstGeom");
+		drawing.ReadToEnd().Should().Contain("sp").And.Contain("prstGeom").And.Contain("flipH=\"1\"").And.Contain("flipV=\"1\"");
 
 		ReportOutput word = new WordOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
 		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
 		using var document = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
-		document.ReadToEnd().Should().Contain("urn:schemas-microsoft-com:vml").And.Contain("rect").And.Contain("line");
+		document.ReadToEnd().Should().Contain("urn:schemas-microsoft-com:vml").And.Contain("rect").And.Contain("line").And.Contain("from=\"20,10\"").And.Contain("to=\"0,0\"");
 	}
 
 	[Fact]
@@ -430,6 +523,118 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
+	public void Rdlc_engine_uses_multi_value_parameter_defaults_for_join()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "multi-value-parameter.rdlc");
+		using FileStream defaultDefinition = File.OpenRead(fixturePath);
+		ReportDocument defaultDocument = new RdlcReportEngine().CreateDocument(defaultDefinition);
+		string defaultHtml = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(defaultDocument, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		defaultHtml.Should().Contain("Regions: APAC, EMEA");
+	}
+
+	[Fact]
+	public void Rdlc_engine_joins_allow_listed_multi_value_parameters()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "multi-value-parameter.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(Parameters: new Dictionary<string, object?>
+		{
+			["Regions"] = new[] { "APAC", "EMEA", "NA" }
+		}));
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		html.Should().Contain("Regions: APAC, EMEA, NA");
+	}
+
+	[Fact]
+	public void Rdlc_engine_does_not_execute_unsupported_code_expressions()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "unsupported-expression.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition);
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		html.Should().Contain("Safe prefix:").And.NotContain("Code.Untrusted");
+	}
+
+	[Fact]
+	public void Rdlc_engine_rejects_unsupported_map_report_items_explicitly()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "unsupported-map.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+
+		Action createDocument = () => new RdlcReportEngine().CreateDocument(definition);
+		createDocument.Should().Throw<NotSupportedException>().WithMessage("*Map*");
+	}
+
+	[Fact]
+	public void Rdlc_engine_rejects_unsupported_chart_types_explicitly()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "unsupported-chart.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+
+		Action createDocument = () => new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[] { new { Name = "Alpha", Amount = 10 } }
+		}));
+		createDocument.Should().Throw<NotSupportedException>().WithMessage("*Line*");
+	}
+
+	[Fact]
+	public void Rdlc_engine_rejects_column_charts_until_the_renderer_contract_supports_them()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "unsupported-column-chart.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+
+		Action createDocument = () => new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[] { new { Name = "Alpha", Amount = 10 } }
+		}));
+		createDocument.Should().Throw<NotSupportedException>().WithMessage("*Column*");
+	}
+
+	[Fact]
+	public void Rdlc_engine_rejects_sibling_row_group_branches_until_member_layout_is_supported()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "unsupported-group-branch.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+
+		Action createDocument = () => new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[] { new { Category = "A", Region = "X", Name = "Alpha" } }
+		}));
+
+		createDocument.Should().Throw<NotSupportedException>().WithMessage("*sibling row-group branches*");
+	}
+
+	[Fact]
+	public void Rdlc_engine_rejects_unsupported_group_pagebreak_locations()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "unsupported-pagebreak.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+
+		Action createDocument = () => new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[] { new { Category = "A", Name = "Alpha" } }
+		}));
+
+		createDocument.Should().Throw<NotSupportedException>().WithMessage("*page breaks at 'Between'*Start*");
+	}
+
+	[Fact]
+	public void Rdlc_engine_resolves_allow_listed_is_nothing_expression()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "is-nothing.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(
+			new Dictionary<string, IEnumerable> { ["Items"] = new[] { new { Name = "Alpha", Optional = (string?)null } } },
+			new Dictionary<string, object?> { ["Optional"] = null }));
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		html.Should().Contain("Null=True Value=False Parameter=True Logic=True Or=True Unknown= UnknownLogic=").And.NotContain("Unknown=True").And.NotContain("UnknownLogic=True");
+	}
+
+	[Fact]
 	public void Rdlc_engine_preserves_textbox_hyperlinks_for_html_and_pdf()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "hyperlink.rdlc");
@@ -521,6 +726,35 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
+	public void Rdlc_engine_sorts_decimal_comma_values_numerically_in_current_culture()
+	{
+		CultureInfo originalCulture = CultureInfo.CurrentCulture;
+		try
+		{
+			CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
+			string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "culture-sorted-tablix.rdlc");
+			using FileStream definition = File.OpenRead(fixturePath);
+			ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+			{
+				["Items"] = new[]
+				{
+					new { Name = "Ten", Amount = "10,0" },
+					new { Name = "OnePointFive", Amount = "1,5" },
+					new { Name = "Two", Amount = "2,0" }
+				}
+			}));
+			string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+			html.IndexOf("OnePointFive", StringComparison.Ordinal).Should().BeLessThan(html.IndexOf("Two", StringComparison.Ordinal));
+			html.IndexOf("Two", StringComparison.Ordinal).Should().BeLessThan(html.IndexOf("Ten", StringComparison.Ordinal));
+		}
+		finally
+		{
+			CultureInfo.CurrentCulture = originalCulture;
+		}
+	}
+
+	[Fact]
 	public void Rdlc_engine_uses_group_scope_for_tablix_aggregates()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "grouped-tablix.rdlc");
@@ -538,6 +772,42 @@ public sealed class SkiaRenderingTests
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
 		html.Should().Contain("Category: A").And.Contain("Category: B").And.Contain("Region: X").And.Contain("Region: Y").And.Contain("Region: Z").And.Contain("Group: A (1/10)").And.Contain("Group: B (2/3)").And.Contain("Group: B (1/4)").And.Contain("Subtotal: A").And.Contain("Sum=10 Avg=10").And.Contain("Subtotal: B").And.Contain("Sum=3 Avg=1.5").And.Contain("Sum=4 Avg=4");
+	}
+
+	[Fact]
+	public void Rdlc_engine_keeps_composite_group_keys_with_delimiter_values_separate()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "grouped-tablix.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = "A\u001FX", Region = "Y", Name = "First", Amount = 10 },
+				new { Category = "A", Region = "X\u001FY", Name = "Second", Amount = 2 }
+			}
+		}));
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		html.Should().Contain("Group rows: 1").And.Contain("Group: A\u001FX (1/10)").And.Contain("Group: A (1/2)");
+	}
+
+	[Fact]
+	public void Rdlc_engine_keeps_nested_group_prefixes_with_delimiter_values_separate()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-grouped-tablix.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = "A\u001FX", Region = "Y", Segment = "I", Name = "First", Amount = 10 },
+				new { Category = "A", Region = "X\u001FY", Segment = "II", Name = "Second", Amount = 2 }
+			}
+		}));
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		html.Should().Contain("Region: Y (1, Sum=10)").And.Contain("Region: X\u001FY (1, Sum=2)");
 	}
 
 	[Fact]
@@ -620,6 +890,58 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
+	public void Rdlc_engine_applies_nested_group_pagebreak_only_at_its_scope_level()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-group-pagebreak.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = "A", Region = "X", Name = "Alpha" },
+				new { Category = "A", Region = "Y", Name = "Beta" },
+				new { Category = "B", Region = "Y", Name = "Gamma" }
+			}
+		}));
+
+		document.Pages.Should().HaveCount(2);
+	}
+
+	[Fact]
+	public void Rdlc_engine_keeps_null_group_keys_in_one_aggregate_scope()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "grouped-null-keys.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = (string?)null, Name = "Null A", Amount = 1 },
+				new { Category = (string?)null, Name = "Null B", Amount = 2 },
+				new { Category = (string?)"A", Name = "Alpha", Amount = 5 }
+			}
+		}));
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		html.Should().Contain("Category=[] Rows=2").And.Contain("First=Null A").And.Contain("Last=Null B").And.Contain("Subtotal=3").And.Contain("Category=[A] Rows=1").And.Contain("Subtotal=5");
+	}
+
+	[Fact]
+	public void Rdlc_engine_renders_static_group_header_when_data_region_is_empty()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "grouped-null-keys.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = Array.Empty<object>()
+		}));
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		document.Pages.Should().HaveCount(1);
+		html.Should().Contain("Null-key groups").And.NotContain("Detail:");
+	}
+
+	[Fact]
 	public void Rdlc_engine_resolves_embedded_images_through_the_injected_resolver()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "image.rdlc");
@@ -662,6 +984,20 @@ public sealed class SkiaRenderingTests
 		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
 		wordArchive.GetEntry("word/charts/chart1.xml").Should().NotBeNull();
 		wordArchive.GetEntry("word/_rels/document.xml.rels").Should().NotBeNull();
+	}
+
+	[Fact]
+	public void Rdlc_engine_renders_visual_items_inside_tablix_cells()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "tablix-visual-items.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[] { new { Name = "Alpha", Amount = 10 }, new { Name = "Beta", Amount = 20 } }
+		}));
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		html.Should().Contain("Cell visuals").And.Contain("Sales in cell").And.Contain("Alpha").And.Contain("Beta").And.Contain("<rect").And.Contain("<line");
 	}
 
 	[Fact]

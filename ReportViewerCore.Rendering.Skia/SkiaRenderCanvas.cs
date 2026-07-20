@@ -87,7 +87,7 @@ public sealed class SkiaRenderCanvas : IRenderCanvas
 	{
 		ThrowIfDisposed();
 		ArgumentException.ThrowIfNullOrWhiteSpace(url);
-		ValidateUrl(url);
+		RenderUrlPolicy.ValidateHyperlink(url);
 		DrawText(text, baseline, font, color, direction);
 		ShapedText shaped = _shaper.Shape(text, font, direction);
 		FontMetrics metrics = _fonts.GetMetrics(font);
@@ -154,14 +154,6 @@ public sealed class SkiaRenderCanvas : IRenderCanvas
 	private static SKColor ToSkColor(RenderColor color) => new(color.Red, color.Green, color.Blue, color.Alpha);
 
 	private static SKRect ToSkRect(RenderRect rectangle) => new(rectangle.X, rectangle.Y, rectangle.Right, rectangle.Bottom);
-
-	private static void ValidateUrl(string url)
-	{
-		if (!Uri.TryCreate(url, UriKind.RelativeOrAbsolute, out Uri? parsed) || (parsed.IsAbsoluteUri && parsed.Scheme is not ("http" or "https" or "mailto")))
-		{
-			throw new ArgumentException("Only http, https, mailto, and relative URLs are supported.", nameof(url));
-		}
-	}
 
 	private void ThrowIfDisposed()
 	{

@@ -80,10 +80,14 @@ public sealed class RdlcReportEngine
 				continue;
 			}
 
-			XElement? defaultValue = definition.Element(ns + "DefaultValues")?.Element(ns + "DefaultValue");
-			if (defaultValue is not null)
+			XElement[] defaultValues = definition.Element(ns + "DefaultValues")?.Elements(ns + "DefaultValue").ToArray() ?? Array.Empty<XElement>();
+			if (defaultValues.Length > 0)
 			{
-				parameters[name] = defaultValue.Value;
+				bool isMultiValue = string.Equals(definition.Attribute("MultiValue")?.Value, "true", StringComparison.OrdinalIgnoreCase)
+					|| string.Equals(definition.Element(ns + "MultiValue")?.Value, "true", StringComparison.OrdinalIgnoreCase);
+				parameters[name] = isMultiValue
+					? defaultValues.Select(value => value.Value).ToArray()
+					: defaultValues[0].Value;
 			}
 		}
 
@@ -156,11 +160,13 @@ public sealed class RdlcReportEngine
 			XElement? headerTemplate = rowTemplates.FirstOrDefault(row => ExtractTexts(row, ns).Any(text => !IsExpression(text.Value)));
 			if (headerTemplate is not null)
 			{
-				AddRow(placements, images, headerTemplate, ns, columnWidths, contentTop, null, context, embeddedImages, rows, left, top);
+				AddRow(placements, images, charts, shapes, headerTemplate, ns, columnWidths, contentTop, null, context, embeddedImages, rows, left, top);
 				contentTop += ReadRowHeight(headerTemplate, ns);
 			}
 
 			string[] groupExpressions = ReadGroupExpressions(tablix, ns);
+			ValidateSupportedGroupHierarchy(tablix, ns);
+			ValidateSupportedGroupPageBreaks(tablix, ns);
 			int groupHeaderCount = groupExpressions.Length > 0 && headerTemplate is not null
 				? Math.Min(groupExpressions.Length, Math.Max(0, rowTemplates.Count - 2))
 				: 0;
@@ -171,13 +177,13 @@ public sealed class RdlcReportEngine
 					? rowTemplates[^1]
 					: rowTemplates.FirstOrDefault(row => row != headerTemplate) ?? rowTemplates[0];
 			XElement? groupFooterTemplate = hasGroupFooter ? rowTemplates[^1] : null;
-			bool breakBetweenGroups = HasGroupPageBreak(tablix, ns);
-			bool hasRenderedGroup = false;
-			var renderedGroupPrefixes = new HashSet<string>(StringComparer.CurrentCulture);
+			IReadOnlySet<int> groupPageBreakLevels = ReadGroupPageBreakLevels(tablix, ns);
+			var renderedGroupPrefixes = new HashSet<GroupPrefixKey>(GroupPrefixKeyComparer.Instance);
+			GroupScope? previousGroupScope = null;
 			foreach (GroupScope groupScope in GroupRows(tablix, ns, rows, context))
 			{
 				IReadOnlyList<object?> scopeRows = groupScope.Rows;
-				if (breakBetweenGroups && hasRenderedGroup && scopeRows.Count > 0)
+				if (previousGroupScope is not null && scopeRows.Count > 0 && groupPageBreakLevels.Any(level => !groupScope.Keys.Take(level + 1).SequenceEqual(previousGroupScope.Keys.Take(level + 1), StringComparer.CurrentCulture)))
 				{
 					contentTop = MoveToNextPageTop(top, contentTop, pageSize.Height);
 				}
@@ -186,12 +192,12 @@ public sealed class RdlcReportEngine
 				{
 					for (int groupLevel = 0; groupLevel < groupHeaderCount; groupLevel++)
 					{
-						string groupPrefix = $"{groupLevel}:\u001F{string.Join("\u001F", groupScope.Keys.Take(groupLevel + 1))}";
+						var groupPrefix = new GroupPrefixKey(groupLevel, groupScope.Keys.Take(groupLevel + 1).ToArray());
 						if (renderedGroupPrefixes.Add(groupPrefix))
 						{
 							IReadOnlyList<object?> headerScopeRows = groupScope.PrefixRows[groupLevel];
 							XElement groupHeader = rowTemplates[groupLevel + 1];
-							AddRow(placements, images, groupHeader, ns, columnWidths, contentTop, headerScopeRows[0], context, embeddedImages, headerScopeRows, left, top);
+							AddRow(placements, images, charts, shapes, groupHeader, ns, columnWidths, contentTop, headerScopeRows[0], context, embeddedImages, headerScopeRows, left, top);
 							contentTop += ReadRowHeight(groupHeader, ns);
 						}
 					}
@@ -199,22 +205,25 @@ public sealed class RdlcReportEngine
 
 				foreach (object? row in scopeRows)
 				{
-					AddRow(placements, images, detailTemplate, ns, columnWidths, contentTop, row, context, embeddedImages, scopeRows, left, top);
+					AddRow(placements, images, charts, shapes, detailTemplate, ns, columnWidths, contentTop, row, context, embeddedImages, scopeRows, left, top);
 					contentTop += ReadRowHeight(detailTemplate, ns);
 				}
 
 				if (groupFooterTemplate is not null && scopeRows.Count > 0)
 				{
-					AddRow(placements, images, groupFooterTemplate, ns, columnWidths, contentTop, scopeRows[^1], context, embeddedImages, scopeRows, left, top);
+					AddRow(placements, images, charts, shapes, groupFooterTemplate, ns, columnWidths, contentTop, scopeRows[^1], context, embeddedImages, scopeRows, left, top);
 					contentTop += ReadRowHeight(groupFooterTemplate, ns);
 				}
 
-				hasRenderedGroup |= scopeRows.Count > 0;
+				if (scopeRows.Count > 0)
+				{
+					previousGroupScope = groupScope;
+				}
 			}
 
 			if (contentTop == 0)
 			{
-				AddRow(placements, images, rowTemplates[0], ns, columnWidths, contentTop, null, context, embeddedImages, rows, left, top);
+				AddRow(placements, images, charts, shapes, rowTemplates[0], ns, columnWidths, contentTop, null, context, embeddedImages, rows, left, top);
 			}
 		}
 
@@ -299,6 +308,10 @@ public sealed class RdlcReportEngine
 				case "Line":
 					shapes.Add(ReadLine(item, ns, parentLeft, parentTop));
 					break;
+				case "Map":
+				case "GaugePanel":
+				case "CustomReportItem":
+					throw new NotSupportedException($"The constrained RDLC engine does not support '{item.Name.LocalName}' report items.");
 				default:
 					AddReportItems(item.Element(ns + "ReportItems"), ns, context, embeddedImages, placements, images, charts, shapes, left, top);
 					break;
@@ -412,7 +425,7 @@ public sealed class RdlcReportEngine
 		return new ReportDocument(pages);
 	}
 
-	private static void AddRow(List<PlacedText> placements, List<PlacedImage> images, XElement row, XNamespace ns, IReadOnlyList<float> columnWidths, float rowTop, object? dataRow, RdlcDataContext context, IReadOnlyDictionary<string, RenderImageRequest> embeddedImages, IReadOnlyList<object?> scopeRows, float leftOffset = 0, float topOffset = 0)
+	private static void AddRow(List<PlacedText> placements, List<PlacedImage> images, List<PlacedChart> charts, List<PlacedShape> shapes, XElement row, XNamespace ns, IReadOnlyList<float> columnWidths, float rowTop, object? dataRow, RdlcDataContext context, IReadOnlyDictionary<string, RenderImageRequest> embeddedImages, IReadOnlyList<object?> scopeRows, float leftOffset = 0, float topOffset = 0)
 	{
 		float x = 0;
 		float height = ReadRowHeight(row, ns);
@@ -425,22 +438,97 @@ public sealed class RdlcReportEngine
 				placements.Add(CreateTextPlacement(textbox, ns, context, dataRow, new RenderPoint(leftOffset + x + 4, topOffset + rowTop + height * 0.75f), scopeRows));
 			}
 
-			foreach (XElement image in cell.Descendants(ns + "Image"))
-			{
-				if (!IsHidden(image, ns, context, dataRow, scopeRows))
+				foreach (XElement image in cell.Descendants(ns + "Image"))
 				{
-					images.Add(ReadImage(image, ns, context, embeddedImages, leftOffset + x, topOffset + rowTop, dataRow));
+					if (!IsHidden(image, ns, context, dataRow, scopeRows))
+					{
+						images.Add(ReadImage(image, ns, context, embeddedImages, leftOffset + x, topOffset + rowTop, dataRow));
+					}
 				}
-			}
-			x += index < columnWidths.Count ? columnWidths[index] : 100;
+
+				foreach (XElement chart in cell.Descendants(ns + "Chart"))
+				{
+					if (!IsHidden(chart, ns, context, dataRow, scopeRows))
+					{
+						charts.Add(ReadChart(chart, ns, context, leftOffset + x, topOffset + rowTop));
+					}
+				}
+
+				foreach (XElement rectangle in cell.Descendants(ns + "Rectangle"))
+				{
+					if (!IsHidden(rectangle, ns, context, dataRow, scopeRows))
+					{
+						shapes.Add(ReadRectangle(rectangle, ns, leftOffset + x, topOffset + rowTop));
+					}
+				}
+
+				foreach (XElement line in cell.Descendants(ns + "Line"))
+				{
+					if (!IsHidden(line, ns, context, dataRow, scopeRows))
+					{
+						shapes.Add(ReadLine(line, ns, leftOffset + x, topOffset + rowTop));
+					}
+				}
+				x += index < columnWidths.Count ? columnWidths[index] : 100;
 		}
 	}
 
 	private static float ReadRowHeight(XElement row, XNamespace ns) => ParseSize(row.Element(ns + "Height")?.Value, 20);
 
-	private static bool HasGroupPageBreak(XElement tablix, XNamespace ns) => tablix.Element(ns + "TablixRowHierarchy")?.Descendants(ns + "PageBreak")
-		.Elements(ns + "BreakLocation")
-		.Any(location => !string.Equals(location.Value.Trim(), "None", StringComparison.OrdinalIgnoreCase)) == true;
+	private static IReadOnlySet<int> ReadGroupPageBreakLevels(XElement tablix, XNamespace ns)
+	{
+		var levels = new HashSet<int>();
+		XElement? members = tablix.Element(ns + "TablixRowHierarchy")?.Element(ns + "TablixMembers");
+		int level = 0;
+		if (members is not null)
+		{
+			ReadGroupPageBreakLevels(members, ns, levels, ref level);
+		}
+
+		return levels;
+	}
+
+	private static void ReadGroupPageBreakLevels(XElement members, XNamespace ns, ISet<int> levels, ref int level)
+	{
+		foreach (XElement member in members.Elements(ns + "TablixMember"))
+		{
+			XElement? group = member.Element(ns + "Group");
+			int expressionCount = group?.Element(ns + "GroupExpressions")?.Elements(ns + "GroupExpression")
+				.Count(expression => !string.IsNullOrWhiteSpace(expression.Value)) ?? 0;
+			if (expressionCount > 0)
+			{
+				bool breaksBetween = group?.Element(ns + "PageBreak")?.Element(ns + "BreakLocation") is XElement location
+					&& string.Equals(location.Value.Trim(), "Between", StringComparison.OrdinalIgnoreCase);
+				if (breaksBetween)
+				{
+					levels.Add(level + expressionCount - 1);
+				}
+
+				level += expressionCount;
+			}
+
+			XElement? nestedMembers = member.Element(ns + "TablixMembers");
+			if (nestedMembers is not null)
+			{
+				ReadGroupPageBreakLevels(nestedMembers, ns, levels, ref level);
+			}
+		}
+	}
+
+	private static void ValidateSupportedGroupPageBreaks(XElement tablix, XNamespace ns)
+	{
+		foreach (XElement location in tablix.Element(ns + "TablixRowHierarchy")?.Descendants(ns + "PageBreak")
+			.Elements(ns + "BreakLocation") ?? Enumerable.Empty<XElement>())
+		{
+			string value = location.Value.Trim();
+			if (!string.IsNullOrWhiteSpace(value)
+				&& !string.Equals(value, "None", StringComparison.OrdinalIgnoreCase)
+				&& !string.Equals(value, "Between", StringComparison.OrdinalIgnoreCase))
+			{
+				throw new NotSupportedException($"The constrained RDLC engine only supports grouped page breaks at 'Between', not '{value}'.");
+			}
+		}
+	}
 
 	private static float MoveToNextPageTop(float topOffset, float contentTop, float pageHeight)
 	{
@@ -491,18 +579,17 @@ public sealed class RdlcReportEngine
 			return new[] { new GroupScope(rows, Array.Empty<string>(), Array.Empty<IReadOnlyList<object?>>()) };
 		}
 
-		var groups = new Dictionary<string, (List<object?> Rows, string[] Keys)>(StringComparer.CurrentCulture);
+		var groups = new Dictionary<IReadOnlyList<string>, (List<object?> Rows, string[] Keys)>(StringSequenceComparer.Instance);
 		var keyedRows = new List<(object? Row, string[] Keys)>();
 		var orderedGroups = new List<GroupScope>();
 		foreach (object? row in rows)
 		{
 			string[] keys = expressions.Select(expression => ResolveValue(expression, row, context)).ToArray();
 			keyedRows.Add((row, keys));
-			string key = string.Join("\u001F", keys);
-			if (!groups.TryGetValue(key, out (List<object?> Rows, string[] Keys) group))
+			if (!groups.TryGetValue(keys, out (List<object?> Rows, string[] Keys) group))
 			{
 				group = (new List<object?>(), keys);
-				groups.Add(key, group);
+				groups.Add(keys, group);
 				orderedGroups.Add(new GroupScope(group.Rows, group.Keys, Array.Empty<IReadOnlyList<object?>>()));
 			}
 
@@ -525,6 +612,39 @@ public sealed class RdlcReportEngine
 		XElement? members = tablix.Element(ns + "TablixRowHierarchy")?.Element(ns + "TablixMembers");
 		return members is null ? Array.Empty<string>() : ReadMemberGroupExpressions(members, ns).ToArray();
 	}
+
+	private static void ValidateSupportedGroupHierarchy(XElement tablix, XNamespace ns)
+	{
+		XElement? members = tablix.Element(ns + "TablixRowHierarchy")?.Element(ns + "TablixMembers");
+		if (members is not null)
+		{
+			ValidateGroupMembers(members, ns);
+		}
+	}
+
+	private static void ValidateGroupMembers(XElement members, XNamespace ns)
+	{
+		XElement[] groupedBranches = members.Elements(ns + "TablixMember")
+			.Where(member => MemberContainsGroup(member, ns))
+			.ToArray();
+		if (groupedBranches.Length > 1)
+		{
+			throw new NotSupportedException("The constrained RDLC engine supports one linear row-group branch; sibling row-group branches require full member-tree layout.");
+		}
+
+		foreach (XElement branch in groupedBranches)
+		{
+			XElement? nestedMembers = branch.Element(ns + "TablixMembers");
+			if (nestedMembers is not null)
+			{
+				ValidateGroupMembers(nestedMembers, ns);
+			}
+		}
+	}
+
+	private static bool MemberContainsGroup(XElement member, XNamespace ns) => member.Element(ns + "Group")?.Element(ns + "GroupExpressions")?.Elements(ns + "GroupExpression")
+		.Any(expression => !string.IsNullOrWhiteSpace(expression.Value)) == true
+		|| member.Element(ns + "TablixMembers")?.Elements(ns + "TablixMember").Any(child => MemberContainsGroup(child, ns)) == true;
 
 	private static IEnumerable<string> ReadMemberGroupExpressions(XElement members, XNamespace ns)
 	{
@@ -549,6 +669,34 @@ public sealed class RdlcReportEngine
 	}
 
 	private sealed record GroupScope(IReadOnlyList<object?> Rows, IReadOnlyList<string> Keys, IReadOnlyList<IReadOnlyList<object?>> PrefixRows);
+	private readonly record struct GroupPrefixKey(int Level, IReadOnlyList<string> Keys);
+
+	private sealed class GroupPrefixKeyComparer : IEqualityComparer<GroupPrefixKey>
+	{
+		public static GroupPrefixKeyComparer Instance { get; } = new();
+
+		public bool Equals(GroupPrefixKey left, GroupPrefixKey right) => left.Level == right.Level && StringSequenceComparer.Instance.Equals(left.Keys, right.Keys);
+
+		public int GetHashCode(GroupPrefixKey value) => HashCode.Combine(value.Level, StringSequenceComparer.Instance.GetHashCode(value.Keys));
+	}
+
+	private sealed class StringSequenceComparer : IEqualityComparer<IReadOnlyList<string>>
+	{
+		public static StringSequenceComparer Instance { get; } = new();
+
+		public bool Equals(IReadOnlyList<string>? left, IReadOnlyList<string>? right) => left is not null && right is not null && left.SequenceEqual(right, StringComparer.CurrentCulture);
+
+		public int GetHashCode(IReadOnlyList<string> values)
+		{
+			HashCode hash = new();
+			foreach (string value in values)
+			{
+				hash.Add(value, StringComparer.CurrentCulture);
+			}
+
+			return hash.ToHashCode();
+		}
+	}
 
 	private static IEnumerable<XElement> ExtractTexts(XElement row, XNamespace ns) => row.Descendants(ns + "TextRun").Elements(ns + "Value");
 
@@ -599,6 +747,22 @@ public sealed class RdlcReportEngine
 			return atom[1..^1].Replace("\"\"", "\"", StringComparison.Ordinal);
 		}
 
+		if (atom.StartsWith("Join(", StringComparison.OrdinalIgnoreCase) && atom.EndsWith(')'))
+		{
+			IReadOnlyList<string> arguments = SplitTopLevel(atom[5..^1], ',');
+			if (arguments.Count == 2)
+			{
+				string separator = ResolveAtom(arguments[1], dataRow, context, scopeRows);
+				Match multiValueParameter = ParameterExpression.Match(arguments[0].Trim());
+				if (multiValueParameter.Success && context.Parameters is not null && context.Parameters.TryGetValue(multiValueParameter.Groups[1].Value, out object? multiValue))
+				{
+					return string.Join(separator, EnumerateValues(multiValue));
+				}
+			}
+
+			return string.Empty;
+		}
+
 		if (atom.StartsWith("IIF(", StringComparison.OrdinalIgnoreCase) && atom.EndsWith(')'))
 		{
 			IReadOnlyList<string> arguments = SplitTopLevel(atom[4..^1], ',');
@@ -625,6 +789,58 @@ public sealed class RdlcReportEngine
 			}
 
 			return string.Empty;
+		}
+
+		if (atom.StartsWith("IsNothing(", StringComparison.OrdinalIgnoreCase) && atom.EndsWith(')'))
+		{
+			string argument = atom[10..^1].Trim();
+			Match nothingField = FieldExpression.Match(argument);
+			if (nothingField.Success)
+			{
+				return (GetMemberValue(dataRow, nothingField.Groups[1].Value) is null).ToString();
+			}
+
+			Match nothingParameter = ParameterExpression.Match(argument);
+			if (nothingParameter.Success && context.Parameters is not null && context.Parameters.TryGetValue(nothingParameter.Groups[1].Value, out object? parameterValue))
+			{
+				return (parameterValue is null).ToString();
+			}
+
+			return string.Empty;
+		}
+
+		if (atom.StartsWith("Not(", StringComparison.OrdinalIgnoreCase) && atom.EndsWith(')'))
+		{
+			IReadOnlyList<string> arguments = SplitTopLevel(atom[4..^1], ',');
+			if (arguments.Count == 1 && TryResolveCondition(arguments[0], dataRow, context, scopeRows, out bool operand))
+			{
+				return (!operand).ToString();
+			}
+
+			return string.Empty;
+		}
+
+		if ((atom.StartsWith("And(", StringComparison.OrdinalIgnoreCase) || atom.StartsWith("Or(", StringComparison.OrdinalIgnoreCase)) && atom.EndsWith(')'))
+		{
+			IReadOnlyList<string> arguments = SplitTopLevel(atom[(atom.IndexOf('(') + 1)..^1], ',');
+			if (arguments.Count < 2)
+			{
+				return string.Empty;
+			}
+
+			bool isAnd = atom.StartsWith("And(", StringComparison.OrdinalIgnoreCase);
+			bool result = isAnd;
+			foreach (string argument in arguments)
+			{
+				if (!TryResolveCondition(argument, dataRow, context, scopeRows, out bool operand))
+				{
+					return string.Empty;
+				}
+
+				result = isAnd ? result && operand : result || operand;
+			}
+
+			return result.ToString();
 		}
 
 		if (atom.Equals("True", StringComparison.OrdinalIgnoreCase) || atom.Equals("False", StringComparison.OrdinalIgnoreCase))
@@ -696,6 +912,16 @@ public sealed class RdlcReportEngine
 
 	private static bool ResolveCondition(string expression, object? dataRow, RdlcDataContext context, IReadOnlyList<object?>? scopeRows = null)
 	{
+		return TryResolveCondition(expression, dataRow, context, scopeRows, out bool result) && result;
+	}
+
+	private static bool TryResolveCondition(string expression, object? dataRow, RdlcDataContext context, IReadOnlyList<object?>? scopeRows, out bool result)
+	{
+		if (bool.TryParse(ResolveAtom(expression, dataRow, context, scopeRows), out result))
+		{
+			return true;
+		}
+
 		string[] operators = [">=", "<=", "<>", "=", ">", "<"];
 		foreach (string op in operators)
 		{
@@ -717,7 +943,7 @@ public sealed class RdlcReportEngine
 				comparison = string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
 			}
 
-			return op switch
+			result = op switch
 			{
 				">=" => comparison >= 0,
 				"<=" => comparison <= 0,
@@ -727,8 +953,10 @@ public sealed class RdlcReportEngine
 				"<" => comparison < 0,
 				_ => false
 			};
+			return true;
 		}
 
+		result = false;
 		return false;
 	}
 
@@ -810,6 +1038,31 @@ public sealed class RdlcReportEngine
 		return property?.GetValue(value);
 	}
 
+	private static IEnumerable<string> EnumerateValues(object? value)
+	{
+		if (value is null)
+		{
+			yield break;
+		}
+
+		if (value is string text)
+		{
+			yield return text;
+			yield break;
+		}
+
+		if (value is IEnumerable values)
+		{
+			foreach (object? item in values)
+			{
+				yield return Convert.ToString(item, CultureInfo.CurrentCulture) ?? string.Empty;
+			}
+			yield break;
+		}
+
+		yield return Convert.ToString(value, CultureInfo.CurrentCulture) ?? string.Empty;
+	}
+
 	private static FontRequest ReadFont(XElement textbox, XNamespace ns)
 	{
 		XElement style = textbox.Element(ns + "Style") ?? textbox.Descendants(ns + "Style").FirstOrDefault() ?? new XElement(ns + "Style");
@@ -861,6 +1114,12 @@ public sealed class RdlcReportEngine
 
 	private static PlacedChart ReadChart(XElement chart, XNamespace ns, RdlcDataContext context, float leftOffset = 0, float topOffset = 0)
 	{
+		string chartType = (chart.Attribute("ChartType")?.Value ?? chart.Element(ns + "ChartType")?.Value ?? string.Empty).Trim();
+		if (!string.IsNullOrWhiteSpace(chartType) && !chartType.Equals("Bar", StringComparison.OrdinalIgnoreCase))
+		{
+			throw new NotSupportedException($"The constrained RDLC engine does not support '{chartType}' chart types.");
+		}
+
 		string dataSetName = chart.Element(ns + "DataSetName")?.Value ?? string.Empty;
 		string categoryExpression = chart.Element(ns + "CategoryExpression")?.Value ?? "=Fields!Name.Value";
 		string valueExpression = chart.Element(ns + "ValueExpression")?.Value ?? "=Fields!Amount.Value";

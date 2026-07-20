@@ -1,3 +1,22 @@
+# 2.0.0-preview.1
+ * Added the backend-neutral .NET 10 rendering boundary and cross-platform Skia, HTML, OpenXML, and Windows adapter packages.
+ * Added the constrained RDLC engine workflow with tablixes, grouping, expressions, images, charts, subreports, pagination, and cell-local visual items.
+ * Extended the constrained expression allow-list with `IsNothing`, `Not`, `And`, and `Or`, while unsupported null operands remain inert.
+ * Preserved styled text colors in OpenXML output and reject chart types that the basic bar-chart contract cannot represent.
+ * Added explicit validation for caller-registered Skia font files.
+ * Preserved horizontal text offsets when writing DOCX paragraphs.
+ * Preserved horizontal offsets for inline DOCX image and chart drawings.
+ * Added explicit constrained-engine diagnostics for branching row-group hierarchies and unsupported grouped page-break locations.
+ * Fixed Excel hyperlink references for multiple links placed on different rows.
+ * Preserved leading and trailing whitespace in OpenXML text runs.
+* Applied the safe hyperlink URL allow-list to OpenXML renderers.
+* Kept composite RDLC group scopes separate when field values contain the internal grouping delimiter.
+* Centralized hyperlink URL validation across the Skia, HTML, and OpenXML renderers.
+* Preserved reverse-direction line geometry in Excel DrawingML and Word VML exports.
+* Applied grouped RDLC page breaks only when the configured group scope changes.
+ * Added opt-in `CreatePortableDocument`/`RenderPortable` bridges for the legacy .NETCore and WinForms APIs; the existing `Render` path remains unchanged.
+ * This preview is not full SSRS/RPL parity. Windows bridge execution, matching-RID runtime smoke, and advanced recursive tablix/chart/map behavior remain release-gate work.
+
 # 15.1.33
  * Updated to Microsoft.CodeAnalysis.VisualBasic version 5.0.0
 

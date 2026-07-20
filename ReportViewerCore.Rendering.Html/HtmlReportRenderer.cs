@@ -97,8 +97,8 @@ internal sealed class HtmlRenderCanvas : IRenderCanvas
 	public void DrawHyperlink(string text, RenderPoint baseline, FontRequest font, RenderColor color, string url, TextDirection direction = TextDirection.LeftToRight)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(url);
-		string safeUrl = ValidateUrl(url);
-		AppendText(text, baseline, font, color, direction, safeUrl);
+		RenderUrlPolicy.ValidateHyperlink(url);
+		AppendText(text, baseline, font, color, direction, url);
 	}
 
 	public void DrawImage(RenderImage image, RenderRect destination)
@@ -179,15 +179,6 @@ internal sealed class HtmlRenderCanvas : IRenderCanvas
 		{
 			_markup.Append(element);
 		}
-	}
-
-	private static string ValidateUrl(string url)
-	{
-		if (Uri.TryCreate(url, UriKind.Absolute, out Uri? absolute) && absolute.Scheme is not ("http" or "https" or "mailto"))
-		{
-			throw new ArgumentException("Only http, https, mailto, and relative URLs are supported.", nameof(url));
-		}
-		return url;
 	}
 
 	private static string Color(RenderColor color) => $"#{color.Red:X2}{color.Green:X2}{color.Blue:X2}";

@@ -67,14 +67,14 @@ internal sealed class OpenXmlRenderCanvas : IRenderCanvas
 	public void DrawLine(RenderPoint start, RenderPoint end, RenderColor color, float strokeWidth)
 	{
 		ThrowIfDisposed();
-		_shapes.Add(new OpenXmlShape(new RenderRect(MathF.Min(start.X, end.X), MathF.Min(start.Y, end.Y), MathF.Abs(end.X - start.X), MathF.Abs(end.Y - start.Y)), true, null, color, strokeWidth));
+		_shapes.Add(new OpenXmlShape(new RenderRect(MathF.Min(start.X, end.X), MathF.Min(start.Y, end.Y), MathF.Abs(end.X - start.X), MathF.Abs(end.Y - start.Y)), true, null, color, strokeWidth, start, end));
 	}
 
 	public void DrawText(string text, RenderPoint baseline, FontRequest font, RenderColor color, TextDirection direction = TextDirection.LeftToRight)
 	{
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(text);
-		_texts.Add(new OpenXmlText(text, baseline, font, direction, null));
+		_texts.Add(new OpenXmlText(text, baseline, font, color, direction, null));
 	}
 
 	public void DrawHyperlink(string text, RenderPoint baseline, FontRequest font, RenderColor color, string url, TextDirection direction = TextDirection.LeftToRight)
@@ -82,7 +82,8 @@ internal sealed class OpenXmlRenderCanvas : IRenderCanvas
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(text);
 		ArgumentException.ThrowIfNullOrWhiteSpace(url);
-		_texts.Add(new OpenXmlText(text, baseline, font, direction, url));
+		RenderUrlPolicy.ValidateHyperlink(url);
+		_texts.Add(new OpenXmlText(text, baseline, font, color, direction, url));
 	}
 
 	public void DrawImage(RenderImage image, RenderRect destination)
@@ -98,13 +99,13 @@ internal sealed class OpenXmlRenderCanvas : IRenderCanvas
 		ArgumentNullException.ThrowIfNull(title);
 		ArgumentNullException.ThrowIfNull(bars);
 		_charts.Add(new OpenXmlChart(title, bars.ToArray(), destination));
-		_texts.Add(new OpenXmlText(title, new RenderPoint(destination.X, destination.Y + font.Size), font with { Bold = true }, TextDirection.LeftToRight, null));
+		_texts.Add(new OpenXmlText(title, new RenderPoint(destination.X, destination.Y + font.Size), font with { Bold = true }, color, TextDirection.LeftToRight, null));
 		for (int index = 0; index < bars.Count; index++)
 		{
 			RenderChartBar bar = bars[index];
 			float y = destination.Y + font.Size + 8 + index * MathF.Max(font.Size * 1.8f, 20);
-			_texts.Add(new OpenXmlText(bar.Label, new RenderPoint(destination.X, y), font, TextDirection.LeftToRight, null));
-			_texts.Add(new OpenXmlText(bar.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture), new RenderPoint(destination.X + destination.Width * 0.6f, y), font, TextDirection.LeftToRight, null));
+			_texts.Add(new OpenXmlText(bar.Label, new RenderPoint(destination.X, y), font, color, TextDirection.LeftToRight, null));
+			_texts.Add(new OpenXmlText(bar.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture), new RenderPoint(destination.X + destination.Width * 0.6f, y), font, color, TextDirection.LeftToRight, null));
 		}
 	}
 
@@ -120,6 +121,7 @@ internal sealed record OpenXmlText(
 	string Text,
 	RenderPoint Baseline,
 	FontRequest Font,
+	RenderColor Color,
 	TextDirection Direction,
 	string? Url);
 
@@ -133,7 +135,7 @@ internal sealed record OpenXmlPage(
 
 internal sealed record OpenXmlChart(string Title, IReadOnlyList<RenderChartBar> Bars, RenderRect Destination);
 
-internal sealed record OpenXmlShape(RenderRect Bounds, bool IsLine, RenderColor? Fill, RenderColor? Stroke, float StrokeWidth);
+internal sealed record OpenXmlShape(RenderRect Bounds, bool IsLine, RenderColor? Fill, RenderColor? Stroke, float StrokeWidth, RenderPoint? Start = null, RenderPoint? End = null);
 
 internal static class OpenXmlPackageWriter
 {
@@ -226,7 +228,7 @@ internal static class OpenXmlPackageWriter
 				{
 					string id = $"rId{hyperlinkId++}";
 					relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", id), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"), new XAttribute("Target", $"media/image{imageIndex}.png")));
-					body.Add(new XElement(Word + "p", WordImage(image, id, imageIndex)));
+					body.Add(new XElement(Word + "p", WordDrawingParagraphProperties(image.Destination), WordImage(image, id, imageIndex)));
 					WriteBinaryEntry(archive, $"word/media/image{imageIndex}.png", image.Image.PngData);
 					imageIndex++;
 				}
@@ -235,7 +237,7 @@ internal static class OpenXmlPackageWriter
 					string id = $"rId{hyperlinkId++}";
 					string chartPath = $"charts/chart{chartIndex}.xml";
 					relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", id), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart"), new XAttribute("Target", chartPath)));
-					body.Add(new XElement(Word + "p", WordChart(chart, id, chartIndex)));
+					body.Add(new XElement(Word + "p", WordDrawingParagraphProperties(chart.Destination), WordChart(chart, id, chartIndex)));
 					WriteEntry(archive, $"word/{chartPath}", ExcelChart(chart));
 					chartIndex++;
 				}
@@ -269,9 +271,25 @@ internal static class OpenXmlPackageWriter
 
 	private static XElement ExcelSheet(OpenXmlPage page, int pageNumber)
 	{
-		IReadOnlyList<OpenXmlText> texts = page.Texts;
+		IReadOnlyList<(int Row, int Column, OpenXmlText Text)> cells = ExcelCells(page);
+		var sheetData = new XElement(Spreadsheet + "sheetData", cells.GroupBy(cell => cell.Row).OrderBy(pair => pair.Key).Select(pair => new XElement(Spreadsheet + "row", new XAttribute("r", pair.Key), pair.Select(cell => ExcelCell(cell.Column, pair.Key, cell.Text)))));
+		var sheet = new XElement(Spreadsheet + "worksheet", new XAttribute(XNamespace.Xmlns + "r", OfficeDocument), sheetData);
+		var hyperlinks = cells.Where(cell => cell.Text.Url is not null).Select((cell, index) => new XElement(Spreadsheet + "hyperlink", new XAttribute("ref", ExcelColumn(cell.Column) + cell.Row), new XAttribute(OfficeDocument + "id", $"rId{index + 1}"))).ToArray();
+		if (hyperlinks.Length > 0)
+		{
+			sheet.Add(new XElement(Spreadsheet + "hyperlinks", hyperlinks));
+		}
+		if (page.Images.Count > 0 || page.Charts.Count > 0 || page.Shapes.Count > 0)
+		{
+			sheet.Add(new XElement(Spreadsheet + "drawing", new XAttribute(OfficeDocument + "id", $"rId{hyperlinks.Length + 1}")));
+		}
+		return sheet;
+	}
+
+	private static IReadOnlyList<(int Row, int Column, OpenXmlText Text)> ExcelCells(OpenXmlPage page)
+	{
 		var rows = new Dictionary<int, List<(int Column, OpenXmlText Text)>>();
-		foreach (OpenXmlText text in texts)
+		foreach (OpenXmlText text in page.Texts)
 		{
 			int row = Math.Max(1, (int)MathF.Floor(text.Baseline.Y / 20) + 1);
 			int column = Math.Max(1, (int)MathF.Floor(text.Baseline.X / 64) + 1);
@@ -287,18 +305,9 @@ internal static class OpenXmlPackageWriter
 			values.Add((column, text));
 		}
 
-		var sheetData = new XElement(Spreadsheet + "sheetData", rows.OrderBy(pair => pair.Key).Select(pair => new XElement(Spreadsheet + "row", new XAttribute("r", pair.Key), pair.Value.Select(cell => ExcelCell(cell.Column, pair.Key, cell.Text)))));
-		var sheet = new XElement(Spreadsheet + "worksheet", new XAttribute(XNamespace.Xmlns + "r", OfficeDocument), sheetData);
-		var hyperlinks = texts.Where(text => text.Url is not null).Select((text, index) => new XElement(Spreadsheet + "hyperlink", new XAttribute("ref", ExcelCellReference(text, index)), new XAttribute(OfficeDocument + "id", $"rId{index + 1}"))).ToArray();
-		if (hyperlinks.Length > 0)
-		{
-			sheet.Add(new XElement(Spreadsheet + "hyperlinks", hyperlinks));
-		}
-		if (page.Images.Count > 0 || page.Charts.Count > 0 || page.Shapes.Count > 0)
-		{
-			sheet.Add(new XElement(Spreadsheet + "drawing", new XAttribute(OfficeDocument + "id", $"rId{hyperlinks.Length + 1}")));
-		}
-		return sheet;
+		return rows.OrderBy(pair => pair.Key)
+			.SelectMany(pair => pair.Value.Select(cell => (Row: pair.Key, Column: cell.Column, Text: cell.Text)))
+			.ToArray();
 	}
 
 	private static XElement ExcelCell(int column, int row, OpenXmlText text)
@@ -308,7 +317,14 @@ internal static class OpenXmlPackageWriter
 			new XAttribute("r", ExcelColumn(column) + row),
 			new XAttribute("t", "inlineStr"),
 			styleIndex > 0 ? new XAttribute("s", styleIndex) : null,
-			new XElement(Spreadsheet + "is", new XElement(Spreadsheet + "t", text.Text)));
+			new XElement(Spreadsheet + "is", new XElement(Spreadsheet + "r",
+				new XElement(Spreadsheet + "rPr",
+					new XElement(Spreadsheet + "rFont", new XAttribute("val", text.Font.Family)),
+					new XElement(Spreadsheet + "sz", new XAttribute("val", text.Font.Size)),
+					text.Font.Bold ? new XElement(Spreadsheet + "b") : null,
+					text.Font.Italic ? new XElement(Spreadsheet + "i") : null,
+					new XElement(Spreadsheet + "color", new XAttribute("rgb", $"FF{text.Color.Red:X2}{text.Color.Green:X2}{text.Color.Blue:X2}"))),
+				TextValue(Spreadsheet + "t", text.Text))));
 	}
 
 	private static int ExcelStyleIndex(TextDirection direction) => direction switch
@@ -318,8 +334,6 @@ internal static class OpenXmlPackageWriter
 		TextDirection.RightToLeft => 3,
 		_ => 0
 	};
-
-	private static string ExcelCellReference(OpenXmlText text, int index) => ExcelColumn(Math.Max(1, (int)MathF.Floor(text.Baseline.X / 64) + 1 + index)) + Math.Max(1, (int)MathF.Floor(text.Baseline.Y / 20) + 1);
 
 	private static string ExcelColumn(int value)
 	{
@@ -336,18 +350,19 @@ internal static class OpenXmlPackageWriter
 	private static XElement ExcelSheetRelationships(OpenXmlPage page, int pageNumber)
 	{
 		var relationships = new XElement(Relationships + "Relationships");
-		IReadOnlyList<OpenXmlText> texts = page.Texts;
-		foreach ((OpenXmlText text, int index) in texts.Where(text => text.Url is not null).Select((text, index) => (text, index)))
+		IReadOnlyList<(int Row, int Column, OpenXmlText Text)> cells = ExcelCells(page);
+		foreach ((OpenXmlText text, int index) in cells.Where(cell => cell.Text.Url is not null).Select((cell, index) => (cell.Text, index)))
 		{
 			relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", $"rId{index + 1}"), new XAttribute("Type", HyperlinkRelationship), new XAttribute("Target", text.Url!), new XAttribute("TargetMode", "External")));
 		}
+		int hyperlinkCount = cells.Count(cell => cell.Text.Url is not null);
 		if (page.Images.Count > 0)
 		{
-			relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", $"rId{texts.Count(text => text.Url is not null) + 1}"), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"), new XAttribute("Target", $"../drawings/drawing{pageNumber}.xml")));
+			relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", $"rId{hyperlinkCount + 1}"), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"), new XAttribute("Target", $"../drawings/drawing{pageNumber}.xml")));
 		}
 		else if (page.Charts.Count > 0 || page.Shapes.Count > 0)
 		{
-			relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", $"rId{texts.Count(text => text.Url is not null) + 1}"), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"), new XAttribute("Target", $"../drawings/drawing{pageNumber}.xml")));
+			relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", $"rId{hyperlinkCount + 1}"), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"), new XAttribute("Target", $"../drawings/drawing{pageNumber}.xml")));
 		}
 		return relationships;
 	}
@@ -392,8 +407,10 @@ internal static class OpenXmlPackageWriter
 
 	private static XElement ExcelShape(OpenXmlShape shape, int id)
 	{
+		bool flipHorizontal = shape.IsLine && shape.Start is RenderPoint start && shape.End is RenderPoint end && start.X > end.X;
+		bool flipVertical = shape.IsLine && shape.Start is RenderPoint verticalStart && shape.End is RenderPoint verticalEnd && verticalStart.Y > verticalEnd.Y;
 		XElement shapeProperties = new(Drawing + "spPr",
-			new XElement(Drawing + "xfrm", new XElement(Drawing + "off", new XAttribute("x", 0), new XAttribute("y", 0)), new XElement(Drawing + "ext", new XAttribute("cx", ToEmu(shape.Bounds.Width)), new XAttribute("cy", ToEmu(shape.Bounds.Height)))),
+			new XElement(Drawing + "xfrm", flipHorizontal ? new XAttribute("flipH", "1") : null, flipVertical ? new XAttribute("flipV", "1") : null, new XElement(Drawing + "off", new XAttribute("x", 0), new XAttribute("y", 0)), new XElement(Drawing + "ext", new XAttribute("cx", ToEmu(shape.Bounds.Width)), new XAttribute("cy", ToEmu(shape.Bounds.Height)))),
 			new XElement(Drawing + "prstGeom", new XAttribute("prst", shape.IsLine ? "line" : "rect"), new XElement(Drawing + "avLst")),
 			shape.Fill is RenderColor fill ? SolidFill(fill) : new XElement(Drawing + "noFill"),
 			shape.Stroke is RenderColor stroke ? new XElement(Drawing + "ln", new XAttribute("w", ToEmu(MathF.Max(0.5f, shape.StrokeWidth))), SolidFill(stroke)) : null);
@@ -463,16 +480,25 @@ internal static class OpenXmlPackageWriter
 	private static XElement WordShape(OpenXmlShape shape, int id)
 	{
 		string style = $"position:absolute;left:{shape.Bounds.X:0.###}pt;top:{shape.Bounds.Y:0.###}pt;width:{shape.Bounds.Width:0.###}pt;height:{shape.Bounds.Height:0.###}pt";
+		XElement element = new(Vml + (shape.IsLine ? "line" : "rect"),
+			new XAttribute("style", style),
+			new XAttribute("filled", shape.Fill is null ? "f" : "t"),
+			shape.Fill is RenderColor fill ? new XAttribute("fillcolor", $"#{fill.Red:X2}{fill.Green:X2}{fill.Blue:X2}") : null,
+			new XAttribute("stroked", shape.Stroke is null ? "f" : "t"),
+			shape.Stroke is RenderColor stroke ? new XAttribute("strokecolor", $"#{stroke.Red:X2}{stroke.Green:X2}{stroke.Blue:X2}") : null,
+			shape.Stroke is not null ? new XAttribute("strokeweight", $"{MathF.Max(0.5f, shape.StrokeWidth):0.###}pt") : null,
+			shape.IsLine && shape.Start is RenderPoint start && shape.End is RenderPoint end
+				? new XAttribute("from", VmlPoint(start, shape.Bounds))
+				: null,
+			shape.IsLine && shape.Start is not null && shape.End is RenderPoint lineEnd
+				? new XAttribute("to", VmlPoint(lineEnd, shape.Bounds))
+				: null);
 		return new XElement(Word + "pict",
 			new XAttribute(XNamespace.Xmlns + "v", Vml),
-			new XElement(Vml + (shape.IsLine ? "line" : "rect"),
-				new XAttribute("style", style),
-				new XAttribute("filled", shape.Fill is null ? "f" : "t"),
-				shape.Fill is RenderColor fill ? new XAttribute("fillcolor", $"#{fill.Red:X2}{fill.Green:X2}{fill.Blue:X2}") : null,
-				new XAttribute("stroked", shape.Stroke is null ? "f" : "t"),
-				shape.Stroke is RenderColor stroke ? new XAttribute("strokecolor", $"#{stroke.Red:X2}{stroke.Green:X2}{stroke.Blue:X2}") : null,
-				shape.Stroke is not null ? new XAttribute("strokeweight", $"{MathF.Max(0.5f, shape.StrokeWidth):0.###}pt") : null));
+			element);
 	}
+
+	private static string VmlPoint(RenderPoint point, RenderRect bounds) => $"{point.X - bounds.X:0.###},{point.Y - bounds.Y:0.###}";
 
 	private static XElement WordChart(OpenXmlChart chart, string relationshipId, int id)
 	{
@@ -486,18 +512,47 @@ internal static class OpenXmlPackageWriter
 
 	private static long ToEmu(float points) => Math.Max(1, (long)Math.Round(points * 12700, MidpointRounding.AwayFromZero));
 
+	private static long ToTwips(float points) => Math.Max(0, (long)Math.Round(points * 20, MidpointRounding.AwayFromZero));
+
+	private static long ToHalfPoints(float points) => Math.Max(1, (long)Math.Round(points * 2, MidpointRounding.AwayFromZero));
+
+	private static XElement? WordDrawingParagraphProperties(RenderRect destination) => destination.X > 0
+		? new XElement(Word + "pPr", new XElement(Word + "ind", new XAttribute(Word + "left", ToTwips(destination.X))))
+		: null;
+
 	private static XElement? WordParagraphProperties(OpenXmlText text)
 	{
-		return text.Direction switch
+		var properties = new List<object>();
+		if (text.Baseline.X > 0)
 		{
-			TextDirection.RightToLeft => new XElement(Word + "pPr", new XElement(Word + "bidi")),
-			TextDirection.TopToBottom => new XElement(Word + "pPr", new XElement(Word + "textDirection", new XAttribute(Word + "val", "tbRl"))),
-			TextDirection.BottomToTop => new XElement(Word + "pPr", new XElement(Word + "textDirection", new XAttribute(Word + "val", "btLr"))),
+			properties.Add(new XElement(Word + "ind", new XAttribute(Word + "left", ToTwips(text.Baseline.X))));
+		}
+
+		XElement? direction = text.Direction switch
+		{
+			TextDirection.RightToLeft => new XElement(Word + "bidi"),
+			TextDirection.TopToBottom => new XElement(Word + "textDirection", new XAttribute(Word + "val", "tbRl")),
+			TextDirection.BottomToTop => new XElement(Word + "textDirection", new XAttribute(Word + "val", "btLr")),
 			_ => null
 		};
+		if (direction is not null)
+		{
+			properties.Add(direction);
+		}
+
+		return properties.Count == 0 ? null : new XElement(Word + "pPr", properties);
 	}
 
-	private static XElement WordRun(OpenXmlText text) => new(Word + "r", new XElement(Word + "rPr", text.Font.Bold ? new XElement(Word + "b") : null, text.Font.Italic ? new XElement(Word + "i") : null), new XElement(Word + "t", text.Text));
+	private static XElement WordRun(OpenXmlText text) => new(Word + "r", new XElement(Word + "rPr",
+		new XElement(Word + "rFonts", new XAttribute(Word + "ascii", text.Font.Family), new XAttribute(Word + "hAnsi", text.Font.Family), new XAttribute(Word + "eastAsia", text.Font.Family), new XAttribute(Word + "cs", text.Font.Family)),
+		new XElement(Word + "sz", new XAttribute(Word + "val", ToHalfPoints(text.Font.Size))),
+		text.Font.Bold ? new XElement(Word + "b") : null,
+		text.Font.Italic ? new XElement(Word + "i") : null,
+		new XElement(Word + "color", new XAttribute(Word + "val", $"{text.Color.Red:X2}{text.Color.Green:X2}{text.Color.Blue:X2}"))), TextValue(Word + "t", text.Text));
+
+	private static XElement TextValue(XName name, string value) => new(name, NeedsPreservedWhitespace(value) ? new XAttribute(XNamespace.Xml + "space", "preserve") : null, value);
+
+	private static bool NeedsPreservedWhitespace(string value) => value.Length > 0 && (char.IsWhiteSpace(value[0]) || char.IsWhiteSpace(value[^1]));
 
 	private static XElement PackageRelationships(string target, string type) => new(Relationships + "Relationships", new XElement(Relationships + "Relationship", new XAttribute("Id", "rId1"), new XAttribute("Type", type), new XAttribute("Target", target)));
 
@@ -545,7 +600,28 @@ internal static class OpenXmlPackageWriter
 			new XElement(Spreadsheet + "tableStyles", new XAttribute("count", 0), new XAttribute("defaultTableStyle", "TableStyleMedium2"), new XAttribute("defaultPivotStyle", "PivotStyleLight16")));
 	}
 
-	private static XElement ExcelContentTypes(IReadOnlyList<OpenXmlPage> pages) => new(ContentTypes + "Types", new XElement(ContentTypes + "Default", new XAttribute("Extension", "rels"), new XAttribute("ContentType", "application/vnd.openxmlformats-package.relationships+xml")), new XElement(ContentTypes + "Default", new XAttribute("Extension", "xml"), new XAttribute("ContentType", "application/xml")), new XElement(ContentTypes + "Default", new XAttribute("Extension", "png"), new XAttribute("ContentType", "image/png")), new XElement(ContentTypes + "Override", new XAttribute("PartName", "/xl/workbook.xml"), new XAttribute("ContentType", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml")), pages.Select((page, index) => new object[] { new XElement(ContentTypes + "Override", new XAttribute("PartName", $"/xl/worksheets/sheet{index + 1}.xml"), new XAttribute("ContentType", "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml")), page.Images.Count > 0 ? new XElement(ContentTypes + "Override", new XAttribute("PartName", $"/xl/drawings/drawing{index + 1}.xml"), new XAttribute("ContentType", "application/vnd.openxmlformats-officedocument.drawing+xml")) : null }).SelectMany(items => items).Where(item => item is not null)!);
+	private static XElement ExcelContentTypes(IReadOnlyList<OpenXmlPage> pages)
+	{
+		var entries = new List<object>
+		{
+			new XElement(ContentTypes + "Default", new XAttribute("Extension", "rels"), new XAttribute("ContentType", "application/vnd.openxmlformats-package.relationships+xml")),
+			new XElement(ContentTypes + "Default", new XAttribute("Extension", "xml"), new XAttribute("ContentType", "application/xml")),
+			new XElement(ContentTypes + "Default", new XAttribute("Extension", "png"), new XAttribute("ContentType", "image/png")),
+			new XElement(ContentTypes + "Override", new XAttribute("PartName", "/xl/workbook.xml"), new XAttribute("ContentType", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"))
+		};
+
+		for (int index = 0; index < pages.Count; index++)
+		{
+			OpenXmlPage page = pages[index];
+			entries.Add(new XElement(ContentTypes + "Override", new XAttribute("PartName", $"/xl/worksheets/sheet{index + 1}.xml"), new XAttribute("ContentType", "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml")));
+			if (page.Images.Count > 0)
+			{
+				entries.Add(new XElement(ContentTypes + "Override", new XAttribute("PartName", $"/xl/drawings/drawing{index + 1}.xml"), new XAttribute("ContentType", "application/vnd.openxmlformats-officedocument.drawing+xml")));
+			}
+		}
+
+		return new XElement(ContentTypes + "Types", entries);
+	}
 
 	private static XElement WordContentTypes(IReadOnlyList<OpenXmlPage> pages)
 	{

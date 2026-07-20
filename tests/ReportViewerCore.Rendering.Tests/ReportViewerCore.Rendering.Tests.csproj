@@ -39,6 +39,18 @@
     <None Include="..\fixtures\engine\scoped-aggregates.rdlc" Link="fixtures\engine\scoped-aggregates.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\visibility.rdlc" Link="fixtures\engine\visibility.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\nested-grouped-tablix.rdlc" Link="fixtures\engine\nested-grouped-tablix.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\nested-group-pagebreak.rdlc" Link="fixtures\engine\nested-group-pagebreak.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\grouped-pagebreak.rdlc" Link="fixtures\engine\grouped-pagebreak.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\grouped-null-keys.rdlc" Link="fixtures\engine\grouped-null-keys.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\culture-sorted-tablix.rdlc" Link="fixtures\engine\culture-sorted-tablix.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\multi-value-parameter.rdlc" Link="fixtures\engine\multi-value-parameter.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\unsupported-expression.rdlc" Link="fixtures\engine\unsupported-expression.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\tablix-visual-items.rdlc" Link="fixtures\engine\tablix-visual-items.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\unsupported-map.rdlc" Link="fixtures\engine\unsupported-map.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\unsupported-chart.rdlc" Link="fixtures\engine\unsupported-chart.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\unsupported-column-chart.rdlc" Link="fixtures\engine\unsupported-column-chart.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\is-nothing.rdlc" Link="fixtures\engine\is-nothing.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\unsupported-group-branch.rdlc" Link="fixtures\engine\unsupported-group-branch.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\unsupported-pagebreak.rdlc" Link="fixtures\engine\unsupported-pagebreak.rdlc" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

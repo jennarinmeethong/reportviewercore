@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <ReportParameters><ReportParameter Name="Optional" DataType="String" /></ReportParameters>
+  <DataSets><DataSet Name="Items"><Fields><Field Name="Name"><DataField>Name</DataField></Field><Field Name="Optional"><DataField>Optional</DataField></Field></Fields></DataSet></DataSets>
+  <ReportSections><ReportSection><Body><ReportItems>
+    <Tablix Name="Items"><TablixBody><TablixColumns><TablixColumn><Width>12cm</Width></TablixColumn></TablixColumns><TablixRows>
+      <TablixRow><Height>1cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Null=" &amp; IsNothing(Fields!Optional.Value) &amp; " Value=" &amp; IsNothing(Fields!Name.Value) &amp; " Parameter=" &amp; IsNothing(Parameters!Optional.Value) &amp; " Logic=" &amp; And(IsNothing(Fields!Optional.Value), Not(IsNothing(Fields!Name.Value))) &amp; " Or=" &amp; Or(IsNothing(Fields!Name.Value), IsNothing(Fields!Optional.Value)) &amp; " Unknown=" &amp; IsNothing("literal") &amp; " UnknownLogic=" &amp; Not(IsNothing("literal"))</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+    </TablixRows></TablixBody><DataSetName>Items</DataSetName></Tablix>
+  </ReportItems></Body><PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight></ReportSection></ReportSections>
+</Report>

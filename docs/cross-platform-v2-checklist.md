@@ -8,10 +8,11 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] Backend-neutral `ReportDocument`/`IRenderCanvas` contracts with no `System.Drawing` in portable packages.
 - [x] SkiaSharp/HarfBuzz PNG/PDF rendering on macOS, Linux, and Windows.
 - [x] HTML SVG output; XLSX/DOCX output with images, links, charts, rectangles, lines, RTL, and vertical text.
-- [x] Constrained RDLC engine: tablixes, sorting, two-level groups, headers/footers, subtotals, images, charts, hyperlinks, nested items, subreports, parameters, expressions, and pagination.
+- [x] Constrained RDLC engine: tablixes, sorting, multi-level group scopes, headers/footers, subtotals, images, charts, hyperlinks, nested items, subreports, parameters, expressions, and pagination.
 - [x] `IReportPageSource`/`ReportPageSourceAdapter` seam for legacy RPL/SPB pagination.
 - [x] Windows display adapter and opt-in legacy `RenderPortable` bridges.
-- [x] 40 regression tests, RID publish workflow, seven `2.0.0-preview.1` packages, samples, and migration docs.
+- [x] 67 regression tests, RID publish workflow, seven `2.0.0-preview.1` packages, samples, and migration docs.
+- [x] Preserve basic charts, rectangles, and lines placed inside tablix cells with cell-column and repeated-row offsets.
 
 ## Remaining implementation phases
 
@@ -20,30 +21,36 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] Identify the v1 RPL/SPB page object and operation types exposed by the legacy processing host (`RPLReport`, `RPLPageContent`, `RPLReportSection`, and `RPLItemMeasurement`).
 - [x] Implement a Windows-only adapter that maps text, images, lines, rectangles, links, dynamic chart/map streams, and page decorations to `IReportPageSource`; tablix cells and nested containers are traversed while snapshotting lazy RPL queues.
 - [x] Keep the adapter isolated from portable packages; the net10 WinForms `CreatePortableDocument` path invokes legacy RPL only after the constrained engine throws `NotSupportedException` or `InvalidDataException`.
-- [x] Add legacy-bridge comparison fixtures; both bridge samples assert semantic text and portable-vs-legacy page counts, while the WinForms case uses an explicitly loaded subreport to exercise RPL fallback.
+- [x] Add golden legacy-bridge comparison fixtures; both samples assert required semantic text and golden portable page counts, and Windows runs also compare legacy page counts. The WinForms case uses an explicitly loaded subreport to exercise RPL fallback.
 - [ ] Run the real legacy-vs-v2 semantic/page-count comparisons on `windows-latest`; builds and CI artifact upload are wired, execution remains environment-dependent.
-- [ ] Add golden legacy-vs-v2 semantic/page-count fixtures.
+- [x] Add golden legacy-vs-v2 semantic/page-count expectations shared by both bridge samples; Windows execution remains a hosted-runner check.
 
 ### 2. RDLC parity
 
 - [x] Support constrained three-or-more-level row-group prefix headers/scopes using matching row templates.
 - [x] Traverse nested `TablixMember` group expressions in document order for constrained scopes.
-- [x] Honor constrained grouped `PageBreak` metadata between materialized group scopes.
+- [x] Honor constrained grouped `PageBreak` metadata only when the configured member-scope prefix changes.
 - [ ] Support arbitrary nested `TablixMember` trees, recursive headers, subtotals, totals, and page breaks.
+- [x] Reject branching row-member trees and unsupported grouped page-break locations explicitly until the page model can represent their layout semantics.
 - [x] Add scoped `First`, `Last`, and `Count` aggregates through the allow-listed expression host.
 - [x] Add allow-listed conditional visibility for standalone report items and tablix-cell text/images.
+- [x] Add a regression proving unsupported `Code.*` expressions remain inert and do not execute arbitrary report code.
+- [x] Add allow-listed `IsNothing` null checks plus boolean `Not`/`And`/`Or` composition without enabling arbitrary report code.
 - [x] Add prefix-scoped nested `Sum` across constrained row-group levels.
 - [x] Define static output policy for `ToggleItem`: honor the initial `Hidden` state.
 - [ ] Define toggle behavior for interactive renderers.
 - [ ] Expand the allow-listed expression host only through tests and security review; never execute arbitrary report code.
-- [ ] Add data-region grouping/sorting fixtures for empty groups, null keys, culture-specific numbers, and multi-value parameters.
+- [x] Add grouped empty-data and null-key fixtures with scoped aggregate assertions, culture-specific decimal-comma sorting, allow-listed multi-value `Join`, and multi-value default coverage.
 
 ### 3. Rendering parity
 
 - [ ] Add line/area/pie and richer chart contracts with semantic HTML/PDF/OpenXML output.
-- [ ] Define map/vector-graphics contracts or explicitly defer them with clear errors.
+- [x] Explicitly reject unsupported map/vector-style report items with clear constrained-engine errors; full map/vector contracts remain future work.
 - [ ] Improve OpenXML layout, merged cells, styles, pagination, floating shapes, and hyperlink/image fidelity.
+- [x] Preserve OpenXML text family/size/weight/style/color, whitespace, hyperlink cell references, and horizontal text/image/chart offsets.
+- [ ] Add merged-cell/table layout, true pagination, floating anchors, and broader hyperlink/image fidelity.
 - [ ] Validate font fallback and embedded-font policy for Latin, Thai, Arabic, CJK, RTL, and vertical text.
+- [x] Define explicit registered-font failure behavior; missing caller-supplied font files fail before rendering, while platform fallback remains runtime/RID-specific.
 
 ### 4. Windows compatibility
 
@@ -58,9 +65,10 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] Publish `osx-x64`, `linux-x64`, `linux-arm64`, and `win-x64`; verify each published payload contains the app and RDLC fixture.
 - [ ] Execute each RID on its matching runner; `linux-arm64` remains publish-only on x64 CI hosts.
 - [x] Validate seven v2 `.nupkg`/`.snupkg` archives with `unzip -t`, README plus linked checklist, symbols, repository metadata, and Skia/HarfBuzz native dependency markers.
-- [x] Independently inspect all seven release symbol archives: each contains a PDB with SourceLink document data; the projects enable `PublishRepositoryUrl` and `EmbedUntrackedSources`.
-- [ ] Publish/execute the remaining RIDs and verify embedded-source records with a dedicated symbol reader.
-- [ ] Review security, licensing, API compatibility, changelog, migration guide, and release notes.
+- [x] Verify the six portable packages have no Windows desktop/System.Drawing dependency; keep that dependency isolated to `ReportViewerCore.Rendering.Windows`.
+- [x] Independently inspect all seven release symbol archives with a Portable PDB reader: each reports `SourceLink=true` and three `EmbeddedSource` records; the projects enable `PublishRepositoryUrl` and `EmbedUntrackedSources`.
+- [x] Review local security boundaries, API compatibility notes, changelog, migration guide, and preview release notes; keep unsupported report code and Windows-only behavior explicit.
+- [ ] Resolve the known `System.Security.Cryptography.Xml` NU1903 dependency advisories (transitive through `System.ServiceModel.Primitives` from the legacy `System.ServiceModel.Http` line) and complete licensing/legal review before stable release.
 
 ## Next-session start
 

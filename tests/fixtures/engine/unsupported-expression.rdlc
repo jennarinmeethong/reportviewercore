@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <ReportSections><ReportSection><Body><ReportItems>
+    <Textbox Name="Unsupported"><Left>0cm</Left><Top>0cm</Top><Width>18cm</Width><Height>1cm</Height><Paragraphs><Paragraph><TextRuns><TextRun><Value>="Safe prefix: " &amp; Code.Untrusted()</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox>
+  </ReportItems></Body><PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight></ReportSection></ReportSections>
+</Report>
