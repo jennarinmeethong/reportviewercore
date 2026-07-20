@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <EmbeddedImages>
+    <EmbeddedImage Name="Logo">
+      <MIMEType>image/png</MIMEType>
+      <ImageData>iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=</ImageData>
+    </EmbeddedImage>
+  </EmbeddedImages>
+  <ReportSections>
+    <ReportSection>
+      <Body>
+        <ReportItems>
+          <Textbox Name="Title">
+            <Top>0.3cm</Top><Left>0.3cm</Left><Width>5cm</Width><Height>0.7cm</Height>
+            <Paragraphs><Paragraph><TextRuns><TextRun><Value>Embedded image</Value></TextRun></TextRuns></Paragraph></Paragraphs>
+          </Textbox>
+          <Image Name="LogoImage">
+            <Source>Embedded</Source><Value>Logo</Value><MIMEType>image/png</MIMEType>
+            <Top>1.5cm</Top><Left>0.3cm</Left><Width>2cm</Width><Height>2cm</Height>
+          </Image>
+        </ReportItems>
+      </Body>
+      <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>
+    </ReportSection>
+  </ReportSections>
+</Report>

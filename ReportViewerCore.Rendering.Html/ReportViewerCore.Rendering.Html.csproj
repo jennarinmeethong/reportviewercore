@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>ReportViewerCore.Rendering.Html</AssemblyName>
+    <RootNamespace>ReportViewerCore.Rendering.Html</RootNamespace>
+    <PackageId>ReportViewerCore.Rendering.Html</PackageId>
+    <VersionPrefix>2.0.0-preview.1</VersionPrefix>
+    <Description>SVG-backed HTML renderer for backend-neutral ReportViewer documents.</Description>
+    <PackageTags>reportviewer;rdlc;html;svg;cross-platform</PackageTags>
+    <RepositoryUrl>https://github.com/jennarinmeethong/reportviewercore</RepositoryUrl>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ReportViewerCore.Rendering.Abstractions\ReportViewerCore.Rendering.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

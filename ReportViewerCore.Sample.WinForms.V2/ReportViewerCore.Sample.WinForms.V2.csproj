@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>ReportViewerCore.Sample.WinForms.V2</AssemblyName>
+    <RootNamespace>ReportViewerCore.Sample.WinForms.V2</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="..\ReportViewerCore.Sample.Console\Report.rdlc" Link="Report.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <ProjectReference Include="..\Microsoft.ReportViewer.WinForms\Microsoft.ReportViewer.WinForms.csproj" />
+  </ItemGroup>
+</Project>

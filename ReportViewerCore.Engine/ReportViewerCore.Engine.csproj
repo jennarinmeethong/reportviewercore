@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>ReportViewerCore.Engine</AssemblyName>
+    <RootNamespace>ReportViewerCore.Engine</RootNamespace>
+    <PackageId>ReportViewerCore.Engine</PackageId>
+    <VersionPrefix>2.0.0-preview.1</VersionPrefix>
+    <Description>Portable RDLC parsing, data binding, pagination, and backend-neutral report documents.</Description>
+    <PackageTags>reportviewer;rdlc;engine;cross-platform</PackageTags>
+    <RepositoryUrl>https://github.com/jennarinmeethong/reportviewercore</RepositoryUrl>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ReportViewerCore.Rendering.Abstractions\ReportViewerCore.Rendering.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

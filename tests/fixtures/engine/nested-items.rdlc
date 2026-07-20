@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <ReportSections><ReportSection><Body><ReportItems>
+    <Rectangle Name="Panel"><Left>1cm</Left><Top>1cm</Top><Width>8cm</Width><Height>3cm</Height><Style><BackgroundColor>#E6EEF8</BackgroundColor><BorderColor>blue</BorderColor></Style>
+      <ReportItems><Textbox Name="NestedText"><Left>1cm</Left><Top>1cm</Top><Width>5cm</Width><Height>1cm</Height><Paragraphs><Paragraph><TextRuns><TextRun><Value>Nested report item</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox></ReportItems>
+    </Rectangle>
+  </ReportItems></Body><PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight></ReportSection></ReportSections>
+</Report>

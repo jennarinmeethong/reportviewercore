@@ -5,3 +5,5 @@ obj
 *.nupkg
 *.exe
 *.bat
+artifacts/
+.DS_Store

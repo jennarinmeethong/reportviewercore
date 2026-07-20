@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>ReportViewerCore.Rendering.Skia</AssemblyName>
+    <RootNamespace>ReportViewerCore.Rendering.Skia</RootNamespace>
+    <PackageId>ReportViewerCore.Rendering.Skia</PackageId>
+    <VersionPrefix>2.0.0-preview.1</VersionPrefix>
+    <Description>SkiaSharp and HarfBuzz renderer for cross-platform ReportViewer documents.</Description>
+    <PackageTags>reportviewer;rdlc;skiasharp;harfbuzz;pdf;cross-platform</PackageTags>
+    <RepositoryUrl>https://github.com/jennarinmeethong/reportviewercore</RepositoryUrl>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ReportViewerCore.Rendering.Abstractions\ReportViewerCore.Rendering.Abstractions.csproj" />
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.9" />
+    <PackageReference Include="HarfBuzzSharp" Version="8.3.1.1" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.1" />
+  </ItemGroup>
+</Project>

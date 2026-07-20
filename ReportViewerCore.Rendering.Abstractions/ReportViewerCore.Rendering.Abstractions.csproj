@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>ReportViewerCore.Rendering.Abstractions</AssemblyName>
+    <RootNamespace>ReportViewerCore.Rendering</RootNamespace>
+    <PackageId>ReportViewerCore.Rendering.Abstractions</PackageId>
+    <VersionPrefix>2.0.0-preview.1</VersionPrefix>
+    <Description>Backend-neutral contracts and primitives for cross-platform ReportViewer rendering.</Description>
+    <PackageTags>reportviewer;rdlc;rendering;cross-platform</PackageTags>
+    <RepositoryUrl>https://github.com/jennarinmeethong/reportviewercore</RepositoryUrl>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+</Project>

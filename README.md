@@ -1,6 +1,16 @@
 # ReportViewer Core
 This project is a port of Microsoft Reporting Services (Report Viewer) to .NET 6+. It is feature-complete and ready for production use, but keep in mind it is not officially supported by Microsoft.
 
+## Cross-platform v2 migration
+
+The repository is incrementally introducing a backend-neutral rendering layer for headless PDF, HTML, and OpenXML rendering on macOS Apple Silicon, Linux, and Windows. The first slice is available in `ReportViewerCore.Rendering.Abstractions`, `ReportViewerCore.Rendering.Skia`, `ReportViewerCore.Rendering.Windows`, `ReportViewerCore.Rendering.Html`, `ReportViewerCore.Rendering.OpenXml`, `ReportViewerCore.Engine`, and `ReportViewerCore.Headless`.
+
+Run the headless smoke sample with `dotnet run --project ReportViewerCore.Sample.CrossPlatform -- ./artifacts/cross-platform`. On Windows, `ReportViewerCore.Sample.WinForms.V2` demonstrates the WinForms display adapter over the same SkiaSharp-rendered pages. The existing `Microsoft.ReportViewer.NETCore` and `Microsoft.ReportViewer.WinForms` packages remain legacy compatibility lines; use the v2 projects for the new backend-neutral workflow.
+
+The v2 local workflow is `ReportViewerCore.Headless.LocalReport`; it accepts an RDLC definition, enumerable data sets, parameters, explicit image/subreport resolvers, and injected renderers. The portable engine currently covers constrained multi-tablix, subreport, and mixed textbox/image/rectangle/line/basic-bar-chart paths. Remote reports use `ServerReport`; `HttpReportServerTransport` supports URL access while `IReportServerAuthenticator` keeps credentials explicit. Basic bar charts produce native XLSX/DOCX chart parts.
+
+For an existing `Microsoft.Reporting.NETCore.LocalReport` or net10 `Microsoft.Reporting.WinForms.LocalReport` application, use `RenderPortable("PDF"|"HTML"|"EXCELOPENXML"|"WORDOPENXML", deviceInfo, ...)` or `CreatePortableDocument()` to opt into the v2 backend without changing the legacy `Render()` method. Use `SetPortableParameters()` when the report should bypass legacy execution-session validation.
+
 For version history and recent fixes, see [changelog](CHANGELOG.md).
 
 # Why

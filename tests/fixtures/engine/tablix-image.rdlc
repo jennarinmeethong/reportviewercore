@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <DataSets>
+    <DataSet Name="Items">
+      <Fields><Field Name="ImageKey"><DataField>ImageKey</DataField></Field></Fields>
+    </DataSet>
+  </DataSets>
+  <ReportSections>
+    <ReportSection>
+      <Body><ReportItems>
+        <Tablix Name="Items">
+          <TablixBody>
+            <TablixColumns><TablixColumn><Width>3cm</Width></TablixColumn></TablixColumns>
+            <TablixRows>
+              <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>Logo</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+              <TablixRow><Height>1.5cm</Height><TablixCells><TablixCell><CellContents><Image><Source>External</Source><Value>=Fields!ImageKey.Value</Value><MIMEType>image/png</MIMEType><Width>1cm</Width><Height>1cm</Height></Image></CellContents></TablixCell></TablixCells></TablixRow>
+            </TablixRows>
+          </TablixBody>
+          <DataSetName>Items</DataSetName>
+        </Tablix>
+      </ReportItems></Body>
+      <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>
+    </ReportSection>
+  </ReportSections>
+</Report>

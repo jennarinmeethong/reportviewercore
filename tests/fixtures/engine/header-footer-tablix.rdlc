@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <DataSets><DataSet Name="Items"><Fields><Field Name="Name"><DataField>Name</DataField></Field><Field Name="Amount"><DataField>Amount</DataField></Field></Fields></DataSet></DataSets>
+  <ReportSections><ReportSection>
+    <PageHeader><Height>1cm</Height><ReportItems><Textbox Name="Header"><Left>0cm</Left><Top>0cm</Top><Width>8cm</Width><Height>0.5cm</Height><Paragraphs><Paragraph><TextRuns><TextRun><Value>Tablix header</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox></ReportItems></PageHeader>
+    <PageFooter><Height>1cm</Height><ReportItems><Textbox Name="Footer"><Left>0cm</Left><Top>0cm</Top><Width>8cm</Width><Height>0.5cm</Height><Paragraphs><Paragraph><TextRuns><TextRun><Value>Tablix footer</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox></ReportItems></PageFooter>
+    <Body><ReportItems><Tablix Name="ItemsTable"><TablixBody><TablixColumns><TablixColumn><Width>4cm</Width></TablixColumn><TablixColumn><Width>3cm</Width></TablixColumn></TablixColumns><TablixRows>
+      <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><Paragraphs><Paragraph><TextRuns><TextRun><Value>Name</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox></CellContents></TablixCell><TablixCell><CellContents><Textbox><Paragraphs><Paragraph><TextRuns><TextRun><Value>Amount</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+      <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><Paragraphs><Paragraph><TextRuns><TextRun><Value>=Fields!Name.Value</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox></CellContents></TablixCell><TablixCell><CellContents><Textbox><Paragraphs><Paragraph><TextRuns><TextRun><Value>=Fields!Amount.Value</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+    </TablixRows></TablixBody><DataSetName>Items</DataSetName></Tablix></ReportItems></Body>
+    <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>
+  </ReportSection></ReportSections>
+</Report>

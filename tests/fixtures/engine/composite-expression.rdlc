@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <ReportParameters><ReportParameter Name="Greeting" /></ReportParameters>
+  <DataSets>
+    <DataSet Name="Items"><Fields><Field Name="Name"><DataField>Name</DataField></Field><Field Name="Amount"><DataField>Amount</DataField></Field></Fields></DataSet>
+  </DataSets>
+  <ReportSections>
+    <ReportSection>
+      <Body><ReportItems>
+        <Tablix Name="Items">
+          <TablixBody>
+            <TablixColumns><TablixColumn><Width>5cm</Width></TablixColumn></TablixColumns>
+            <TablixRows>
+              <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>Customer</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+              <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Customer: " &amp; Fields!Name.Value &amp; " - " &amp; IIF(Fields!Amount.Value &gt; 10, "High", Format(Fields!Amount.Value, "N2"))</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+            </TablixRows>
+          </TablixBody>
+          <DataSetName>Items</DataSetName>
+        </Tablix>
+        <Textbox Name="Greeting" Top="2cm"><TextRuns><TextRun><Value>="Greeting: " &amp; Parameters!Greeting.Value</Value></TextRun></TextRuns></Textbox>
+      </ReportItems></Body>
+      <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>
+    </ReportSection>
+  </ReportSections>
+</Report>

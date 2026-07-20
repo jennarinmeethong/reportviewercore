@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <DataSets>
+    <DataSet Name="Items">
+      <Fields>
+        <Field Name="Name"><DataField>Name</DataField></Field>
+        <Field Name="Amount"><DataField>Amount</DataField></Field>
+      </Fields>
+    </DataSet>
+  </DataSets>
+  <ReportSections>
+    <ReportSection>
+      <Body>
+        <ReportItems>
+          <Rectangle Name="ChartFrame">
+            <Left>0.5cm</Left><Top>0.5cm</Top><Width>18cm</Width><Height>10cm</Height>
+            <Style><BackgroundColor>#F4F7FB</BackgroundColor><BorderColor>#336699</BorderColor><BorderWidth>1pt</BorderWidth></Style>
+          </Rectangle>
+          <Line Name="ChartRule">
+            <Left>0.5cm</Left><Top>11cm</Top><Width>18cm</Width><Height>0cm</Height>
+            <Style><BorderColor>blue</BorderColor><BorderWidth>1pt</BorderWidth></Style>
+          </Line>
+          <Textbox Name="ChartCaption">
+            <Left>1cm</Left><Top>0.3cm</Top><Width>8cm</Width><Height>0.5cm</Height>
+            <Paragraphs><Paragraph><TextRuns><TextRun><Value>Report layout</Value></TextRun></TextRuns></Paragraph></Paragraphs>
+          </Textbox>
+          <Chart Name="SalesChart">
+            <Title>Sales by item</Title><DataSetName>Items</DataSetName>
+            <CategoryExpression>=Fields!Name.Value</CategoryExpression>
+            <ValueExpression>=Fields!Amount.Value</ValueExpression>
+            <Left>1cm</Left><Top>1cm</Top><Width>16cm</Width><Height>8cm</Height>
+          </Chart>
+        </ReportItems>
+      </Body>
+      <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>
+    </ReportSection>
+  </ReportSections>
+</Report>

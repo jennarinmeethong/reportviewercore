@@ -1,0 +1,96 @@
+name: Cross-platform v2
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  portable:
+    name: ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+            execute: true
+          - os: ubuntu-latest
+            rid: linux-arm64
+            execute: false
+          - os: macos-14
+            rid: osx-arm64
+            execute: true
+          - os: macos-13
+            rid: osx-x64
+            execute: true
+          - os: windows-latest
+            rid: win-x64
+            execute: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.x
+
+      - name: Restore portable tests
+        run: dotnet restore tests/ReportViewerCore.Rendering.Tests/ReportViewerCore.Rendering.Tests.csproj --nologo
+
+      - name: Test portable rendering
+        run: dotnet test tests/ReportViewerCore.Rendering.Tests/ReportViewerCore.Rendering.Tests.csproj --no-restore --configuration Release --nologo -m:1 -p:UseSharedCompilation=false
+
+      - name: Restore cross-platform sample
+        run: dotnet restore ReportViewerCore.Sample.CrossPlatform/ReportViewerCore.Sample.CrossPlatform.csproj --runtime ${{ matrix.rid }} --nologo
+
+      - name: Publish cross-platform sample
+        run: dotnet publish ReportViewerCore.Sample.CrossPlatform/ReportViewerCore.Sample.CrossPlatform.csproj --no-restore --configuration Release --runtime ${{ matrix.rid }} --self-contained false --nologo -m:1 -p:UseSharedCompilation=false
+
+      - name: Run native smoke sample
+        if: matrix.execute == true
+        run: dotnet run --project ReportViewerCore.Sample.CrossPlatform/ReportViewerCore.Sample.CrossPlatform.csproj --no-restore --configuration Release -- ./artifacts/ci-smoke
+
+      - name: Upload smoke artifacts
+        if: always() && matrix.execute == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportviewer-${{ matrix.rid }}
+          path: artifacts/ci-smoke
+          if-no-files-found: error
+
+  windows-adapter:
+    name: WinForms v2 adapter
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.x
+
+      - name: Restore Windows sample
+        run: dotnet restore ReportViewerCore.Sample.WinForms.V2/ReportViewerCore.Sample.WinForms.V2.csproj --nologo
+
+      - name: Build Windows adapter sample
+        run: dotnet build ReportViewerCore.Sample.WinForms.V2/ReportViewerCore.Sample.WinForms.V2.csproj --no-restore --configuration Release --nologo -m:1 -p:UseSharedCompilation=false
+
+      - name: Restore legacy v2 bridge sample
+        run: dotnet restore ReportViewerCore.Sample.LegacyBridge/ReportViewerCore.Sample.LegacyBridge.csproj --nologo
+
+      - name: Build legacy v2 bridge sample
+        run: dotnet build ReportViewerCore.Sample.LegacyBridge/ReportViewerCore.Sample.LegacyBridge.csproj --no-restore --configuration Release --nologo -m:1 -p:UseSharedCompilation=false
+
+      - name: Run legacy v2 bridge sample
+        run: dotnet run --project ReportViewerCore.Sample.LegacyBridge/ReportViewerCore.Sample.LegacyBridge.csproj --no-restore --configuration Release -- ./artifacts/windows-legacy-bridge
+
+      - name: Restore WinForms legacy v2 bridge sample
+        run: dotnet restore ReportViewerCore.Sample.WinForms.LegacyBridge/ReportViewerCore.Sample.WinForms.LegacyBridge.csproj --nologo
+
+      - name: Build WinForms legacy v2 bridge sample
+        run: dotnet build ReportViewerCore.Sample.WinForms.LegacyBridge/ReportViewerCore.Sample.WinForms.LegacyBridge.csproj --no-restore --configuration Release --nologo -m:1 -p:UseSharedCompilation=false
+
+      - name: Run WinForms legacy v2 bridge sample
+        run: dotnet run --project ReportViewerCore.Sample.WinForms.LegacyBridge/ReportViewerCore.Sample.WinForms.LegacyBridge.csproj --no-restore --configuration Release -- ./artifacts/windows-winforms-legacy-bridge

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>ReportViewerCore.Rendering.Windows</AssemblyName>
+    <RootNamespace>ReportViewerCore.Rendering.Windows</RootNamespace>
+    <PackageId>ReportViewerCore.Rendering.Windows</PackageId>
+    <VersionPrefix>2.0.0-preview.1</VersionPrefix>
+    <Description>Windows-only WinForms display adapter over the shared Skia ReportViewer renderer.</Description>
+    <PackageTags>reportviewer;rdlc;winforms;windows;cross-platform</PackageTags>
+    <RepositoryUrl>https://github.com/jennarinmeethong/reportviewercore</RepositoryUrl>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ReportViewerCore.Rendering.Abstractions\ReportViewerCore.Rendering.Abstractions.csproj" />
+    <ProjectReference Include="..\ReportViewerCore.Rendering.Skia\ReportViewerCore.Rendering.Skia.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <ReportParameters><ReportParameter Name="TargetUrl" /></ReportParameters>
+  <ReportSections><ReportSection><Body><ReportItems>
+    <Textbox Name="Link"><Left>0cm</Left><Top>0cm</Top><Width>10cm</Width><Height>1cm</Height>
+      <ActionInfo><Actions><Action><Hyperlink>=Parameters!TargetUrl.Value</Hyperlink></Action></Actions></ActionInfo>
+      <Paragraphs><Paragraph><TextRuns><TextRun><Value>Open linked report</Value></TextRun></TextRuns></Paragraph></Paragraphs>
+    </Textbox>
+  </ReportItems></Body><PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight></ReportSection></ReportSections>
+</Report>

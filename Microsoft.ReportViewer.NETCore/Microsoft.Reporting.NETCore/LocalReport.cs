@@ -20,6 +20,22 @@ using System.Security;
 using System.Security.Permissions;
 using System.Security.Policy;
 using System.Text;
+#if NET10_0_OR_GREATER
+using System.Data;
+using PortableEngine = ReportViewerCore.Engine.RdlcReportEngine;
+using PortableContext = ReportViewerCore.Engine.RdlcDataContext;
+using PortableHeadless = ReportViewerCore.Headless.HeadlessReportRenderer;
+using PortableFormat = ReportViewerCore.Rendering.ReportOutputFormat;
+using PortableOptions = ReportViewerCore.Rendering.ReportRenderOptions;
+using PortableOutput = ReportViewerCore.Rendering.ReportOutput;
+using PortableRenderer = ReportViewerCore.Rendering.IReportRenderer;
+using PortableDocument = ReportViewerCore.Rendering.ReportDocument;
+using PortablePdf = ReportViewerCore.Rendering.Skia.SkiaPdfRenderer;
+using PortableHtml = ReportViewerCore.Rendering.Html.HtmlReportRenderer;
+using PortableExcel = ReportViewerCore.Rendering.OpenXml.ExcelOpenXmlRenderer;
+using PortableWord = ReportViewerCore.Rendering.OpenXml.WordOpenXmlRenderer;
+using PortableImageResolver = ReportViewerCore.Rendering.Skia.SkiaImageResolver;
+#endif
 
 namespace Microsoft.Reporting.NETCore
 {
@@ -47,6 +63,10 @@ namespace Microsoft.Reporting.NETCore
 		private readonly ILocalProcessingHost m_processingHost;
 
 		private RenderingExtension[] m_externalRenderingExtensions;
+
+#if NET10_0_OR_GREATER
+		private readonly Dictionary<string, object> m_portableParameters = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+#endif
 
 		[NonSerialized]
 		private MapTileServerConfiguration m_mapTileServerConfiguration;
@@ -454,6 +474,128 @@ namespace Microsoft.Reporting.NETCore
 				SetDirectReportDefinition("", report);
 			}
 		}
+
+#if NET10_0_OR_GREATER
+		/// <summary>
+		/// Creates a v2 backend-neutral document without invoking the legacy GDI renderer.
+		/// </summary>
+		public PortableDocument CreatePortableDocument()
+		{
+			lock (m_syncObject)
+			{
+				byte[] definition = m_processingHost.Catalog.GetReportDefinition(m_processingHost.ItemContext);
+				var dataSets = new Dictionary<string, IEnumerable>(StringComparer.OrdinalIgnoreCase);
+				foreach (ReportDataSource source in DataSources)
+				{
+					if (source.Value is not null)
+					{
+						dataSets[source.Name] = ToPortableDataSet(source.Value);
+					}
+				}
+
+				using var stream = new MemoryStream(definition, writable: false);
+				return new PortableEngine().CreateDocument(stream, new PortableContext(dataSets, new Dictionary<string, object>(m_portableParameters, StringComparer.OrdinalIgnoreCase), new PortableImageResolver()));
+			}
+		}
+
+		/// <summary>
+		/// Sets parameters for the v2 bridge without compiling the report through the legacy processor.
+		/// </summary>
+		public void SetPortableParameters(IEnumerable<ReportParameter> parameters)
+		{
+			if (parameters == null)
+			{
+				throw new ArgumentNullException("parameters");
+			}
+
+			lock (m_syncObject)
+			{
+				m_portableParameters.Clear();
+				CapturePortableParameters(parameters);
+			}
+		}
+
+		/// <summary>
+		/// Renders through the v2 Skia/HTML/OpenXML backends. The legacy Render method remains unchanged.
+		/// </summary>
+		public byte[] RenderPortable(string format, string deviceInfo, out string mimeType, out string encoding, out string fileNameExtension)
+		{
+			PortableFormat outputFormat = ParsePortableFormat(format);
+			using var pdf = new PortablePdf();
+			var renderers = new PortableRenderer[]
+			{
+				pdf,
+				new PortableHtml(),
+				new PortableExcel(),
+				new PortableWord()
+			};
+			var pipeline = new PortableHeadless(renderers);
+			PortableOutput output = pipeline.Render(CreatePortableDocument(), new PortableOptions(outputFormat, deviceInfo));
+			mimeType = output.MimeType;
+			encoding = "utf-8";
+			fileNameExtension = output.FileExtension;
+			return output.Data.ToArray();
+		}
+
+		private static IEnumerable ToPortableDataSet(object value)
+		{
+			if (value is System.Data.DataTable table)
+			{
+				var rows = new List<Dictionary<string, object>>();
+				foreach (System.Data.DataRow row in table.Rows)
+				{
+					var values = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+					foreach (System.Data.DataColumn column in table.Columns)
+					{
+						values[column.ColumnName] = row[column];
+					}
+					rows.Add(values);
+				}
+				return rows;
+			}
+
+			if (value is IEnumerable enumerable && value is not Type)
+			{
+				return enumerable;
+			}
+
+			throw new NotSupportedException("The v2 portable bridge supports IEnumerable and DataTable data sources.");
+		}
+
+		private static PortableFormat ParsePortableFormat(string format)
+		{
+			return format?.Trim().ToUpperInvariant() switch
+			{
+				"PDF" => PortableFormat.Pdf,
+				"HTML" or "HTML5" => PortableFormat.Html,
+				"EXCELOPENXML" => PortableFormat.ExcelOpenXml,
+				"WORDOPENXML" => PortableFormat.WordOpenXml,
+				_ => throw new ArgumentOutOfRangeException(nameof(format), format, "The v2 portable bridge supports PDF, HTML, EXCELOPENXML, and WORDOPENXML.")
+			};
+		}
+
+		private void CapturePortableParameters(IEnumerable<ReportParameter> parameters)
+		{
+			foreach (ReportParameter parameter in parameters)
+			{
+				if (parameter == null || parameter.Name == null)
+				{
+					throw new ArgumentNullException("parameters");
+				}
+
+				if (parameter.Values.Count == 1)
+				{
+					m_portableParameters[parameter.Name] = parameter.Values[0];
+				}
+				else if (parameter.Values.Count > 1)
+				{
+					string[] values = new string[parameter.Values.Count];
+					parameter.Values.CopyTo(values, 0);
+					m_portableParameters[parameter.Name] = values;
+				}
+			}
+		}
+#endif
 
 		public void LoadSubreportDefinition(string reportName, TextReader report)
 		{

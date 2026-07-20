@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <ReportParameters><ReportParameter Name="ImageKey" /></ReportParameters>
+  <ReportSections><ReportSection><Body><ReportItems>
+    <Image Name="DynamicImage"><Source>External</Source><Value>=Parameters!ImageKey.Value</Value><MIMEType>image/png</MIMEType><Left>0cm</Left><Top>0cm</Top><Width>1cm</Width><Height>1cm</Height></Image>
+  </ReportItems></Body><PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight></ReportSection></ReportSections>
+</Report>

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>ReportViewerCore.Rendering.OpenXml</AssemblyName>
+    <RootNamespace>ReportViewerCore.Rendering.OpenXml</RootNamespace>
+    <PackageId>ReportViewerCore.Rendering.OpenXml</PackageId>
+    <VersionPrefix>2.0.0-preview.1</VersionPrefix>
+    <Description>Managed XLSX and DOCX renderers for backend-neutral ReportViewer documents.</Description>
+    <PackageTags>reportviewer;rdlc;openxml;xlsx;docx;cross-platform</PackageTags>
+    <RepositoryUrl>https://github.com/jennarinmeethong/reportviewercore</RepositoryUrl>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ReportViewerCore.Rendering.Abstractions\ReportViewerCore.Rendering.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

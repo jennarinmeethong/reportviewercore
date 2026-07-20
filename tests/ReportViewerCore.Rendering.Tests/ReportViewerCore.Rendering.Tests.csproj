@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\ReportViewerCore.Headless\ReportViewerCore.Headless.csproj" />
+    <ProjectReference Include="..\..\ReportViewerCore.Rendering.Abstractions\ReportViewerCore.Rendering.Abstractions.csproj" />
+    <ProjectReference Include="..\..\ReportViewerCore.Rendering.Html\ReportViewerCore.Rendering.Html.csproj" />
+    <ProjectReference Include="..\..\ReportViewerCore.Rendering.OpenXml\ReportViewerCore.Rendering.OpenXml.csproj" />
+    <ProjectReference Include="..\..\ReportViewerCore.Engine\ReportViewerCore.Engine.csproj" />
+    <ProjectReference Include="..\..\ReportViewerCore.Rendering.Skia\ReportViewerCore.Rendering.Skia.csproj" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageReference Include="FluentAssertions" Version="8.9.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\fixtures\engine\simple.rdlc" Link="fixtures\engine\simple.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\image.rdlc" Link="fixtures\engine\image.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\chart.rdlc" Link="fixtures\engine\chart.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\multi-tablix.rdlc" Link="fixtures\engine\multi-tablix.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\subreport-parent.rdlc" Link="fixtures\engine\subreport-parent.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\subreport-parameter-child.rdlc" Link="fixtures\engine\subreport-parameter-child.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\header-footer.rdlc" Link="fixtures\engine\header-footer.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\header-footer-tablix.rdlc" Link="fixtures\engine\header-footer-tablix.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\parameter-default.rdlc" Link="fixtures\engine\parameter-default.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\hyperlink.rdlc" Link="fixtures\engine\hyperlink.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\nested-items.rdlc" Link="fixtures\engine\nested-items.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\styled-text.rdlc" Link="fixtures\engine\styled-text.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\image-expression.rdlc" Link="fixtures\engine\image-expression.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\tablix-image.rdlc" Link="fixtures\engine\tablix-image.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\composite-expression.rdlc" Link="fixtures\engine\composite-expression.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\sorted-tablix.rdlc" Link="fixtures\engine\sorted-tablix.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\grouped-tablix.rdlc" Link="fixtures\engine\grouped-tablix.rdlc" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
