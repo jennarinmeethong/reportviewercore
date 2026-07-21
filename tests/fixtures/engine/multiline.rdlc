@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <ReportSections><ReportSection>
+    <Body><ReportItems>
+      <Textbox Name="MultilineText"><Top>1cm</Top><Left>1cm</Left><Width>8cm</Width><Height>2cm</Height><Paragraphs><Paragraph><TextRuns><TextRun><Value>Line 1&#xA;Line 2</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox>
+    </ReportItems></Body>
+    <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>
+  </ReportSection></ReportSections>
+</Report>

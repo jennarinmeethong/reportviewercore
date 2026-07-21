@@ -36,7 +36,9 @@
     <None Include="..\fixtures\engine\tablix-image.rdlc" Link="fixtures\engine\tablix-image.rdlc" CopyToOutputDirectory="PreserveNewest" />
 		<None Include="..\fixtures\engine\composite-expression.rdlc" Link="fixtures\engine\composite-expression.rdlc" CopyToOutputDirectory="PreserveNewest" />
 		<None Include="..\fixtures\engine\string-functions.rdlc" Link="fixtures\engine\string-functions.rdlc" CopyToOutputDirectory="PreserveNewest" />
+		<None Include="..\fixtures\engine\string-functions-advanced.rdlc" Link="fixtures\engine\string-functions-advanced.rdlc" CopyToOutputDirectory="PreserveNewest" />
 		<None Include="..\fixtures\engine\no-rows-message.rdlc" Link="fixtures\engine\no-rows-message.rdlc" CopyToOutputDirectory="PreserveNewest" />
+		<None Include="..\fixtures\engine\multiline.rdlc" Link="fixtures\engine\multiline.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\sorted-tablix.rdlc" Link="fixtures\engine\sorted-tablix.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\grouped-tablix.rdlc" Link="fixtures\engine\grouped-tablix.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\scoped-aggregates.rdlc" Link="fixtures\engine\scoped-aggregates.rdlc" CopyToOutputDirectory="PreserveNewest" />

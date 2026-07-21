@@ -377,6 +377,22 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
+	public void Openxml_word_renderer_maps_multiline_fixture_text_to_break_nodes()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "multiline.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition);
+		ReportOutput output = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var archive = new ZipArchive(new MemoryStream(output.Data.ToArray()), ZipArchiveMode.Read);
+		using var reader = new StreamReader(archive.GetEntry("word/document.xml")!.Open());
+		string xml = reader.ReadToEnd();
+
+		xml.Should().Contain("Line 1").And.Contain("w:br").And.Contain("Line 2");
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		html.Should().Contain("<tspan").And.Contain("Line 1").And.Contain("Line 2");
+	}
+
+	[Fact]
 	public void Report_page_source_adapter_bridges_paginated_pages_into_the_shared_document()
 	{
 		ReportDocument document = ReportPageSourceAdapter.Adapt(new FixturePageSource());
@@ -505,6 +521,16 @@ public sealed class SkiaRenderingTests
 
 		document.Pages.Count.Should().BeGreaterThan(1);
 		document.Pages.Should().OnlyContain(page => Math.Abs(page.Size.Height - 841.89f) < 0.1f);
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain("w:type=\"page\"").And.Contain("Row 80");
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var workbookReader = new StreamReader(excelArchive.GetEntry("xl/workbook.xml")!.Open());
+		workbookReader.ReadToEnd().Should().Contain("Page 2");
 	}
 
 	[Fact]
@@ -797,6 +823,20 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
+	public void Rdlc_engine_resolves_safe_search_and_replace_string_functions()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "string-functions-advanced.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[] { new { Name = "Alpha" } }
+		}));
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		html.Should().Contain("Index=3 Replace=AlPHa").And.Contain("Malformed=");
+	}
+
+	[Fact]
 	public void Rdlc_engine_sorts_tablix_rows_before_pagination()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "sorted-tablix.rdlc");
@@ -1041,6 +1081,18 @@ public sealed class SkiaRenderingTests
 
 		document.Pages.Should().ContainSingle();
 		html.Should().Contain("Empty state").And.Contain("No data available").And.NotContain("Detail:");
+		using var pdf = new SkiaPdfRenderer();
+		pdf.Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain("No data available");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain("No data available");
 	}
 
 	[Fact]
@@ -1262,6 +1314,34 @@ public sealed class SkiaRenderingTests
 		handler.Request!.RequestUri!.AbsoluteUri.Should().Contain("?/Sales/Summary").And.Contain("rs%3AFormat=PDF").And.Contain("Region=APAC%20%26%20SEA");
 		authenticator.Called.Should().BeTrue();
 		handler.Request.Headers.GetValues("X-Test-Auth").Should().ContainSingle().Which.Should().Be("injected");
+	}
+
+	[Fact]
+	public async Task Http_report_server_transport_rejects_non_http_endpoints()
+	{
+		using var client = new HttpClient(new RecordingHttpHandler());
+		var transport = new HttpReportServerTransport(client);
+		Func<Task> render = () => transport.RenderAsync(new ReportServerRenderRequest(
+			new Uri("file:///reports/ReportServer"),
+			"/Sales/Summary",
+			ReportOutputFormat.Pdf));
+
+		await render.Should().ThrowAsync<ArgumentException>().WithMessage("*absolute HTTP(S) URI*");
+	}
+
+	[Fact]
+	public async Task Http_report_server_transport_rejects_unsupported_formats_before_sending()
+	{
+		var handler = new RecordingHttpHandler();
+		using var client = new HttpClient(handler);
+		var transport = new HttpReportServerTransport(client);
+		Func<Task> render = () => transport.RenderAsync(new ReportServerRenderRequest(
+			new Uri("https://reports.example.test/ReportServer"),
+			"/Sales/Summary",
+			(ReportOutputFormat)999));
+
+		await render.Should().ThrowAsync<ArgumentOutOfRangeException>();
+		handler.Request.Should().BeNull();
 	}
 
 	private static string ResolvePackagePath(string relationshipPath, string target)

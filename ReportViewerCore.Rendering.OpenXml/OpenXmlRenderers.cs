@@ -601,12 +601,34 @@ internal static class OpenXmlPackageWriter
 		return properties.Count == 0 ? null : new XElement(Word + "pPr", properties);
 	}
 
-	private static XElement WordRun(OpenXmlText text) => new(Word + "r", new XElement(Word + "rPr",
-		new XElement(Word + "rFonts", new XAttribute(Word + "ascii", text.Font.Family), new XAttribute(Word + "hAnsi", text.Font.Family), new XAttribute(Word + "eastAsia", text.Font.Family), new XAttribute(Word + "cs", text.Font.Family)),
-		new XElement(Word + "sz", new XAttribute(Word + "val", ToHalfPoints(text.Font.Size))),
-		text.Font.Bold ? new XElement(Word + "b") : null,
-		text.Font.Italic ? new XElement(Word + "i") : null,
-		new XElement(Word + "color", new XAttribute(Word + "val", $"{text.Color.Red:X2}{text.Color.Green:X2}{text.Color.Blue:X2}"))), TextValue(Word + "t", text.Text));
+	private static XElement WordRun(OpenXmlText text)
+	{
+		var content = new List<object>
+		{
+			new XElement(Word + "rPr",
+				new XElement(Word + "rFonts", new XAttribute(Word + "ascii", text.Font.Family), new XAttribute(Word + "hAnsi", text.Font.Family), new XAttribute(Word + "eastAsia", text.Font.Family), new XAttribute(Word + "cs", text.Font.Family)),
+				new XElement(Word + "sz", new XAttribute(Word + "val", ToHalfPoints(text.Font.Size))),
+				text.Font.Bold ? new XElement(Word + "b") : null,
+				text.Font.Italic ? new XElement(Word + "i") : null,
+				new XElement(Word + "color", new XAttribute(Word + "val", $"{text.Color.Red:X2}{text.Color.Green:X2}{text.Color.Blue:X2}")))
+		};
+		content.AddRange(WordTextNodes(text.Text));
+		return new XElement(Word + "r", content);
+	}
+
+	private static IEnumerable<XElement> WordTextNodes(string value)
+	{
+		string[] lines = value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+		for (int index = 0; index < lines.Length; index++)
+		{
+			if (index > 0)
+			{
+				yield return new XElement(Word + "br");
+			}
+
+			yield return TextValue(Word + "t", lines[index]);
+		}
+	}
 
 	private static XElement TextValue(XName name, string value) => new(name, NeedsPreservedWhitespace(value) ? new XAttribute(XNamespace.Xml + "space", "preserve") : null, value);
 

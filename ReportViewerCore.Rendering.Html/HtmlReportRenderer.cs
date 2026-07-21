@@ -369,7 +369,20 @@ internal sealed class HtmlRenderCanvas : IRenderCanvas
 		{
 			element.Append(" writing-mode=\"tb\"");
 		}
-		element.Append('>').Append(WebUtility.HtmlEncode(text)).Append("</text>");
+		string[] lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+		if (lines.Length == 1)
+		{
+			element.Append(WebUtility.HtmlEncode(lines[0]));
+		}
+		else
+		{
+			for (int index = 0; index < lines.Length; index++)
+			{
+				element.Append("<tspan x=\"").Append(Number(baseline.X)).Append("\" dy=\"").Append(Number(index == 0 ? 0 : font.Size * 1.2f)).Append("\">")
+					.Append(WebUtility.HtmlEncode(lines[index])).Append("</tspan>");
+			}
+		}
+		element.Append("</text>");
 		if (url is not null)
 		{
 			_markup.Append("<a href=\"").Append(WebUtility.HtmlEncode(url)).Append("\">").Append(element).Append("</a>");

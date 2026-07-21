@@ -21,7 +21,8 @@ Every RDLC in `engine/` is copied into the test output and validated as non-empt
 | `parameter-default.rdlc`, `multi-value-parameter.rdlc` | Scalar and multi-value parameter defaults plus allow-listed `Join` |
 | `hyperlink.rdlc` | Safe hyperlink propagation to HTML, PDF, and OpenXML |
 | `nested-items.rdlc`, `styled-text.rdlc`, `international-text.rdlc` | Nested placement, styles, color, Thai/Arabic/CJK/RTL, and vertical text |
-| `composite-expression.rdlc`, `string-functions.rdlc`, `is-nothing.rdlc`, `visibility.rdlc` | Allow-listed expressions/string functions, null checks, boolean composition, and initial hidden state |
+| `multiline.rdlc` | Multiline text mapped to native Word line-break nodes |
+| `composite-expression.rdlc`, `string-functions.rdlc`, `string-functions-advanced.rdlc`, `is-nothing.rdlc`, `visibility.rdlc` | Allow-listed expressions/string functions, search/replace, null checks, boolean composition, and initial hidden state |
 | `sorted-tablix.rdlc`, `culture-sorted-tablix.rdlc` | Stable row sorting and culture-specific decimal sorting |
 | `grouped-tablix.rdlc`, `nested-grouped-tablix.rdlc`, `grouped-null-keys.rdlc` | Scoped grouping, nested prefix scopes, null keys, headers, subtotals, and aggregates |
 | `no-rows-message.rdlc` | Empty tablix `NoRowsMessage` rendering |

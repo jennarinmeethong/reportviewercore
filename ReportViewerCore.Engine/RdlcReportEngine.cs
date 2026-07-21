@@ -811,6 +811,28 @@ public sealed class RdlcReportEngine
 			return string.Empty;
 		}
 
+		if ((atom.StartsWith("InStr(", StringComparison.OrdinalIgnoreCase) || atom.StartsWith("Replace(", StringComparison.OrdinalIgnoreCase)) && atom.EndsWith(')'))
+		{
+			IReadOnlyList<string> arguments = SplitTopLevel(atom[(atom.IndexOf('(') + 1)..^1], ',');
+			if (atom.StartsWith("InStr(", StringComparison.OrdinalIgnoreCase) && arguments.Count == 2)
+			{
+				string sourceText = ResolveAtom(arguments[0], dataRow, context, scopeRows);
+				string search = ResolveAtom(arguments[1], dataRow, context, scopeRows);
+				int index = sourceText.IndexOf(search, StringComparison.CurrentCulture);
+				return (index < 0 ? 0 : index + 1).ToString(CultureInfo.CurrentCulture);
+			}
+
+			if (atom.StartsWith("Replace(", StringComparison.OrdinalIgnoreCase) && arguments.Count == 3)
+			{
+				string sourceText = ResolveAtom(arguments[0], dataRow, context, scopeRows);
+				string search = ResolveAtom(arguments[1], dataRow, context, scopeRows);
+				string replacement = ResolveAtom(arguments[2], dataRow, context, scopeRows);
+				return sourceText.Replace(search, replacement, StringComparison.CurrentCulture);
+			}
+
+			return string.Empty;
+		}
+
 		if (atom.StartsWith("IIF(", StringComparison.OrdinalIgnoreCase) && atom.EndsWith(')'))
 		{
 			IReadOnlyList<string> arguments = SplitTopLevel(atom[4..^1], ',');

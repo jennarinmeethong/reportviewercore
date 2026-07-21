@@ -95,5 +95,11 @@
 - Dataset names in RDLC are case-insensitive even when a caller supplies a case-sensitive `IReadOnlyDictionary`; resolve exact keys first, then use an ordinal-ignore-case fallback without copying or mutating caller data.
 - OpenXML package tests should validate both XML syntax and internal relationship targets; well-formed XML can still point at missing worksheet, drawing, chart, or media parts.
 - `NoRowsMessage` is a tablix-level empty-state value, not a detail row. Render it only when the resolved row list is empty, keep the static header, and assert the detail expression is absent in `no-rows-message.rdlc`.
+- Keep string search functions fixture-backed: `InStr` returns the RDLC-style one-based index (or zero), and `Replace` uses current-culture matching; malformed argument lists resolve empty.
+- WordprocessingML line breaks should be emitted as `w:br` elements between `w:t` nodes; embedding a literal newline in one `w:t` is not a reliable native Word layout contract.
+- SVG `<text>` newline behavior is renderer/browser-dependent; emit one `tspan` per line with explicit `x` and `dy` when a report value contains CR/LF.
+- Pagination regressions should inspect native artifacts: Word uses `w:br w:type="page"`, while Excel represents report pages as separate worksheets; checking only `ReportDocument.Pages` misses backend mapping failures.
+- Keep `HttpReportServerTransport` validation before `HttpClient.SendAsync`: invalid schemes and unknown `ReportOutputFormat` values should fail without invoking authenticators or handlers.
+- Shared RDLC empty-state behavior should be checked beyond HTML; PDF signature plus XLSX/DOCX text proves the placement survives all portable backends.
 - Keep the page-source bridge contract testable: empty `PageCount` and zero/negative page dimensions must throw `InvalidDataException` before any canvas callback is created.
 - For the cross-platform sample, build the Release project once and run its generated DLL directly when `dotnet run` stalls in the local build host; the direct sample emits the same seven smoke artifacts and is independently validator-checked.
