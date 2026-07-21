@@ -11,7 +11,7 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] Constrained RDLC engine: tablixes, sorting, multi-level group scopes, headers/footers, subtotals, images, charts, hyperlinks, nested items, subreports, parameters, expressions, and pagination.
 - [x] `IReportPageSource`/`ReportPageSourceAdapter` seam for legacy RPL/SPB pagination.
 - [x] Windows display adapter and opt-in legacy `RenderPortable` bridges.
-- [x] 80 regression tests, 38 content-complete RDLC fixtures, RID publish workflow, seven `2.0.0-preview.1` packages, samples, and migration docs.
+- [x] 97 regression tests, 43 content-complete RDLC fixtures, RID publish workflow, seven `2.0.0-preview.1` packages, samples, and migration docs.
 - [x] Preserve basic charts, rectangles, and lines placed inside tablix cells with cell-column and repeated-row offsets.
 - [x] Preserve bar/column/line/area/pie/doughnut chart semantics through the shared fixture and native backend output parts; unsupported Radar remains an explicit negative case.
 
@@ -25,6 +25,7 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] Add golden legacy-bridge comparison fixtures; both samples assert required semantic text and golden portable page counts, and Windows runs also compare legacy page counts. The WinForms case uses an explicitly loaded subreport to exercise RPL fallback.
 - [ ] Run the real legacy-vs-v2 semantic/page-count comparisons on `windows-latest`; builds and CI artifact upload are wired, execution remains environment-dependent.
 - [x] Add golden legacy-vs-v2 semantic/page-count expectations shared by both bridge samples; Windows execution remains a hosted-runner check.
+- [x] Execute both legacy bridge comparisons on the current Windows host; the hosted `windows-latest` job remains the final independent confirmation.
 
 ### 2. RDLC parity
 

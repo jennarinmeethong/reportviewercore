@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
-  <ReportParameters><ReportParameter Name="ParentTitle" /></ReportParameters>
+  <ReportParameters><ReportParameter Name="ParentTitle"><DataType>String</DataType><Prompt>Parent title</Prompt></ReportParameter></ReportParameters>
   <ReportSections>
     <ReportSection>
       <Body><ReportItems>
         <Subreport Name="ChildReport">
-          <ReportName>Child</ReportName><Left>1cm</Left><Top>1cm</Top>
+          <ReportName>  Child  </ReportName><Left>1cm</Left><Top>1cm</Top>
           <Parameters><Parameter Name="ChildTitle"><Value>=Parameters!ParentTitle.Value</Value></Parameter></Parameters>
         </Subreport>
-      </ReportItems></Body>
-      <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>
+      </ReportItems><Height>2in</Height></Body>
+      <Width>21cm</Width><Page><PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight></Page>
     </ReportSection>
   </ReportSections>
 </Report>

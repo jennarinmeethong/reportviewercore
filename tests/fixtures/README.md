@@ -15,10 +15,10 @@ Every RDLC in `engine/` is copied into the test output and validated as non-empt
 | `simple.rdlc` | Basic field binding and single-page HTML rendering |
 | `image.rdlc`, `image-expression.rdlc`, `tablix-image.rdlc` | Embedded, resolved, and tablix-cell images |
 | `chart.rdlc`, `column-chart.rdlc` | Bar, column, line, area, pie, doughnut, and unsupported-chart regression inputs |
-| `multi-tablix.rdlc`, `tablix-visual-items.rdlc` | Multiple regions and cell-relative text/image/rectangle/line/chart placement |
+| `multi-tablix.rdlc`, `mixed-tablix-subreport.rdlc`, `tablix-visual-items.rdlc` | Multiple regions, mixed subreport content, and cell-relative text/image/rectangle/line/chart placement |
 | `subreport-parent.rdlc`, `subreport-parameter-child.rdlc` | Explicit subreport resolution and parameter mapping |
-| `header-footer.rdlc`, `header-footer-tablix.rdlc` | Repeating page decorations for textbox and tablix reports |
-| `parameter-default.rdlc`, `multi-value-parameter.rdlc` | Scalar and multi-value parameter defaults plus allow-listed `Join` |
+| `header-footer.rdlc`, `header-footer-tablix.rdlc`, `nested-header-footer.rdlc` | Repeating page decorations for textbox, tablix, and nested-container reports |
+| `parameter-default.rdlc`, `parameter-case-insensitive.rdlc`, `multi-value-parameter.rdlc` | Scalar/default, case-insensitive, and multi-value parameter behavior plus allow-listed `Join` |
 | `hyperlink.rdlc` | Safe hyperlink propagation to HTML, PDF, and OpenXML |
 | `nested-items.rdlc`, `styled-text.rdlc`, `international-text.rdlc` | Nested placement, styles, color, Thai/Arabic/CJK/RTL, and vertical text |
 | `multiline.rdlc` | Multiline text mapped to native Word line-break nodes |
@@ -29,4 +29,6 @@ Every RDLC in `engine/` is copied into the test output and validated as non-empt
 | `scoped-aggregates.rdlc` | `First`, `Last`, `Count`, `Min`, and `Max` over the materialized scope |
 | `grouped-pagebreak.rdlc`, `nested-group-pagebreak.rdlc` | Supported grouped `Between` page breaks at outer and nested scopes |
 | `unsupported-expression.rdlc`, `unsupported-map.rdlc`, `unsupported-chart.rdlc` | Explicit security and unsupported-feature rejection cases |
-| `unsupported-group-branch.rdlc`, `unsupported-pagebreak.rdlc` | Explicit rejection of branching members and unsupported break locations |
+| `unsupported-group-branch.rdlc`, `unsupported-pagebreak.rdlc`, `unsupported-tablix-subreport.rdlc`, `unsupported-nested-subreport.rdlc` | Explicit rejection of branching members, unsupported break locations, and unsupported nested subreports |
+
+The `legacy-bridge/legacy-bridge-report.rdlc` fixture is a schema-valid legacy RDL input used only by the Windows headless bridge sample; it keeps legacy data-source metadata separate from the constrained engine fixtures.

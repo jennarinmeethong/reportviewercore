@@ -25,9 +25,12 @@
     <None Include="..\fixtures\engine\multi-tablix.rdlc" Link="fixtures\engine\multi-tablix.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\subreport-parent.rdlc" Link="fixtures\engine\subreport-parent.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\subreport-parameter-child.rdlc" Link="fixtures\engine\subreport-parameter-child.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\mixed-tablix-subreport.rdlc" Link="fixtures\engine\mixed-tablix-subreport.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\header-footer.rdlc" Link="fixtures\engine\header-footer.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\header-footer-tablix.rdlc" Link="fixtures\engine\header-footer-tablix.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\nested-header-footer.rdlc" Link="fixtures\engine\nested-header-footer.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\parameter-default.rdlc" Link="fixtures\engine\parameter-default.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\parameter-case-insensitive.rdlc" Link="fixtures\engine\parameter-case-insensitive.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\hyperlink.rdlc" Link="fixtures\engine\hyperlink.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\nested-items.rdlc" Link="fixtures\engine\nested-items.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\styled-text.rdlc" Link="fixtures\engine\styled-text.rdlc" CopyToOutputDirectory="PreserveNewest" />
@@ -56,6 +59,8 @@
     <None Include="..\fixtures\engine\column-chart.rdlc" Link="fixtures\engine\column-chart.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\is-nothing.rdlc" Link="fixtures\engine\is-nothing.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\unsupported-group-branch.rdlc" Link="fixtures\engine\unsupported-group-branch.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\unsupported-tablix-subreport.rdlc" Link="fixtures\engine\unsupported-tablix-subreport.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\unsupported-nested-subreport.rdlc" Link="fixtures\engine\unsupported-nested-subreport.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\unsupported-pagebreak.rdlc" Link="fixtures\engine\unsupported-pagebreak.rdlc" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

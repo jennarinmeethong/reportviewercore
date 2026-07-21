@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
   <ReportSections><ReportSection><Body><ReportItems>
-    <Textbox Name="Styled"><Left>1cm</Left><Top>1cm</Top><Width>4cm</Width><Height>4cm</Height><Style><Color>red</Color><WritingMode>tb-rl</WritingMode></Style>
+    <Textbox Name="Styled"><Left>1cm</Left><Top>1cm</Top><Width>4cm</Width><Height>4cm</Height><Style><FontFamily> </FontFamily><Color>red</Color><WritingMode>tb-rl</WritingMode></Style>
       <Paragraphs><Paragraph><TextRuns><TextRun><Value>縦書き styled text</Value></TextRun></TextRuns></Paragraph></Paragraphs>
     </Textbox>
   </ReportItems></Body><PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight></ReportSection></ReportSections>

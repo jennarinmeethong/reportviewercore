@@ -91,7 +91,9 @@ public sealed class SkiaRenderCanvas : IRenderCanvas
 		DrawText(text, baseline, font, color, direction);
 		ShapedText shaped = _shaper.Shape(text, font, direction);
 		FontMetrics metrics = _fonts.GetMetrics(font);
-		_canvas.DrawUrlAnnotation(new SKRect(baseline.X, baseline.Y - metrics.Ascent, baseline.X + MathF.Abs(shaped.AdvanceX), baseline.Y - metrics.Ascent + metrics.LineHeight), url);
+		float width = MathF.Max(metrics.LineHeight, MathF.Abs(shaped.AdvanceX));
+		float height = MathF.Max(metrics.LineHeight, MathF.Abs(shaped.AdvanceY));
+		_canvas.DrawUrlAnnotation(new SKRect(baseline.X, baseline.Y - metrics.Ascent, baseline.X + width, baseline.Y - metrics.Ascent + height), url);
 	}
 
 	public void DrawImage(RenderImage image, RenderRect destination)

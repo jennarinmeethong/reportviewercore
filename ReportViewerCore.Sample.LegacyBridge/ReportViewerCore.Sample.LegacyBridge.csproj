@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="..\tests\fixtures\engine\simple.rdlc" Link="Report.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\tests\fixtures\legacy-bridge\legacy-bridge-report.rdlc" Link="Report.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\tests\fixtures\legacy-bridge\golden-semantic-page-count.json" Link="GoldenBridgeExpectations.json" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="..\Microsoft.ReportViewer.NETCore\Microsoft.ReportViewer.NETCore.csproj" />
   </ItemGroup>

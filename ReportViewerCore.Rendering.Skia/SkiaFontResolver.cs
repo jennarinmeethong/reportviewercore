@@ -41,9 +41,9 @@ public sealed class SkiaFontResolver : IFontResolver, IDisposable
 
 	internal SkiaFont Resolve(FontRequest request)
 	{
-		if (request.Size <= 0)
+		if (!float.IsFinite(request.Size) || request.Size <= 0)
 		{
-			throw new ArgumentOutOfRangeException(nameof(request), "Font size must be greater than zero.");
+			throw new ArgumentOutOfRangeException(nameof(request), "Font size must be finite and greater than zero.");
 		}
 
 		RegisteredFont? registered = null;

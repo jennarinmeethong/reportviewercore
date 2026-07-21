@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <ReportSections>
+    <ReportSection>
+      <PageHeader><Height>1cm</Height><ReportItems>
+        <Rectangle Name="HeaderContainer"><Left>2cm</Left><Top>0.2cm</Top><Width>8cm</Width><Height>0.8cm</Height><ReportItems>
+          <Textbox Name="NestedHeader"><Left>1cm</Left><Top>0.1cm</Top><Width>6cm</Width><Height>0.5cm</Height><Paragraphs><Paragraph><TextRuns><TextRun><Value>Nested page header</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox>
+        </ReportItems></Rectangle>
+      </ReportItems></PageHeader>
+      <PageFooter><Height>1cm</Height><ReportItems>
+        <Rectangle Name="FooterContainer"><Left>3cm</Left><Top>0.2cm</Top><Width>8cm</Width><Height>0.8cm</Height><ReportItems>
+          <Textbox Name="NestedFooter"><Left>1cm</Left><Top>0.1cm</Top><Width>6cm</Width><Height>0.5cm</Height><Paragraphs><Paragraph><TextRuns><TextRun><Value>Nested page footer</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox>
+        </ReportItems></Rectangle>
+      </ReportItems></PageFooter>
+      <Body><ReportItems>
+        <Textbox Name="FirstPage"><Left>0cm</Left><Top>1cm</Top><Width>8cm</Width><Height>0.5cm</Height><Paragraphs><Paragraph><TextRuns><TextRun><Value>First nested-body page</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox>
+        <Textbox Name="SecondPage"><Left>0cm</Left><Top>35cm</Top><Width>8cm</Width><Height>0.5cm</Height><Paragraphs><Paragraph><TextRuns><TextRun><Value>Second nested-body page</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox>
+      </ReportItems></Body>
+      <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>
+    </ReportSection>
+  </ReportSections>
+</Report>

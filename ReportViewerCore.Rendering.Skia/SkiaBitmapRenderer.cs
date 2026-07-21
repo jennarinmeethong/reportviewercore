@@ -16,6 +16,11 @@ public sealed class SkiaBitmapRenderer : IDisposable
 	public RenderImage Render(RenderSize size, Action<IRenderCanvas> draw)
 	{
 		ArgumentNullException.ThrowIfNull(draw);
+		if (!float.IsFinite(size.Width) || !float.IsFinite(size.Height) || size.Width <= 0 || size.Height <= 0)
+		{
+			throw new ArgumentOutOfRangeException(nameof(size), "Bitmap dimensions must be finite and greater than zero.");
+		}
+
 		int width = checked((int)MathF.Ceiling(size.Width));
 		int height = checked((int)MathF.Ceiling(size.Height));
 		if (width <= 0 || height <= 0)

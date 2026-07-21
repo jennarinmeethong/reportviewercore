@@ -5,7 +5,7 @@
     <Body><ReportItems><Tablix Name="Items">
       <TablixBody><TablixColumns><TablixColumn><Width>14cm</Width></TablixColumn></TablixColumns><TablixRows>
         <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>Advanced string functions</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
-        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Index=" &amp; InStr(Fields!Name.Value, &quot;ph&quot;) &amp; " Replace=" &amp; Replace(Fields!Name.Value, &quot;ph&quot;, &quot;PH&quot;) &amp; " Malformed=" &amp; InStr(Fields!Name.Value) &amp; Replace(Fields!Name.Value, &quot;ph&quot;)</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Index=" &amp; InStr(Fields!Name.Value, &quot;ph&quot;) &amp; " Replace=" &amp; Replace(Fields!Name.Value, &quot;ph&quot;, &quot;PH&quot;) &amp; " Mid=" &amp; Mid(Fields!Name.Value, 3, 3) &amp; " Malformed=" &amp; InStr(Fields!Name.Value) &amp; Replace(Fields!Name.Value, &quot;ph&quot;)</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
       </TablixRows></TablixBody>
       <DataSetName>Items</DataSetName>
     </Tablix></ReportItems></Body>

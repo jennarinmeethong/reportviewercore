@@ -214,8 +214,9 @@ internal static class OpenXmlPackageWriter
 			int hyperlinkId = 1;
 			int imageIndex = 1;
 			int chartIndex = 1;
-			foreach (OpenXmlPage page in pages)
+			for (int pageIndex = 0; pageIndex < pages.Count; pageIndex++)
 			{
+				OpenXmlPage page = pages[pageIndex];
 				foreach (OpenXmlText text in page.Texts)
 				{
 					XElement run = WordRun(text);
@@ -251,7 +252,10 @@ internal static class OpenXmlPackageWriter
 				{
 					body.Add(new XElement(Word + "p", WordShape(shape, 300 + shapeIndex)));
 				}
-				body.Add(new XElement(Word + "p", new XElement(Word + "r", new XElement(Word + "br", new XAttribute(Word + "type", "page")))));
+				if (pageIndex < pages.Count - 1)
+				{
+					body.Add(new XElement(Word + "p", new XElement(Word + "r", new XElement(Word + "br", new XAttribute(Word + "type", "page")))));
+				}
 			}
 			OpenXmlPage firstPage = pages[0];
 			body.Add(new XElement(Word + "sectPr", new XElement(Word + "pgSz", new XAttribute(Word + "w", ToTwips(firstPage.Size.Width)), new XAttribute(Word + "h", ToTwips(firstPage.Size.Height)))));

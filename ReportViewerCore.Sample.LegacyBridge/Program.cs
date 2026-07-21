@@ -2,6 +2,8 @@ using Microsoft.Reporting.NETCore;
 using System.Text;
 using System.Text.Json;
 
+try
+{
 var outputDirectory = args.Length == 0 ? Directory.GetCurrentDirectory() : Path.GetFullPath(args[0]);
 Directory.CreateDirectory(outputDirectory);
 
@@ -14,8 +16,8 @@ string[] requiredText = golden.GetProperty("requiredText").EnumerateArray().Sele
 report.LoadReportDefinition(definition);
 report.DataSources.Add(new ReportDataSource("Items", new[]
 {
-	new { Name = "Windows bridge", Amount = 10 },
-	new { Name = "Shared Skia backend", Amount = 20 }
+	new { Description = "Windows bridge", Price = 10m, Qty = 2, Total = 20m },
+	new { Description = "Shared Skia backend", Price = 20m, Qty = 1, Total = 20m }
 }));
 
 byte[] html = report.RenderPortable("HTML", null, out string mimeType, out _, out string extension);
@@ -23,7 +25,14 @@ File.WriteAllBytes(Path.Combine(outputDirectory, $"legacy-bridge.{extension}"), 
 string markup = Encoding.UTF8.GetString(html);
 int portablePageCount = CountOccurrences(markup, "class=\"report-page\"");
 bool legacyComparisonAvailable = OperatingSystem.IsWindows();
-int legacyPageCount = legacyComparisonAvailable ? report.GetTotalPages(out _) : portablePageCount;
+int legacyPageCount = portablePageCount;
+if (legacyComparisonAvailable)
+{
+	byte[] legacyPdf = report.Render("PDF", null, PageCountMode.Actual, out _, out _, out _, out _, out _);
+	File.WriteAllBytes(Path.Combine(outputDirectory, "legacy-bridge-legacy.pdf"), legacyPdf);
+	int reportedLegacyPageCount = report.GetTotalPages(out _);
+	legacyPageCount = reportedLegacyPageCount > 0 ? reportedLegacyPageCount : CountPdfPages(legacyPdf);
+}
 bool requiredTextPresent = requiredText.All(text => markup.Contains(text, StringComparison.Ordinal));
 if (portablePageCount != expectedPageCount || (legacyComparisonAvailable && portablePageCount != legacyPageCount) || !requiredTextPresent)
 {
@@ -32,6 +41,13 @@ if (portablePageCount != expectedPageCount || (legacyComparisonAvailable && port
 
 string legacyStatus = legacyComparisonAvailable ? $"legacy pages={legacyPageCount}" : "legacy page count skipped on non-Windows";
 Console.WriteLine($"Legacy LocalReport v2 comparison passed: {portablePageCount} page(s), {mimeType}; {legacyStatus}");
+return 0;
+}
+catch (Exception exception)
+{
+Console.Error.WriteLine(exception);
+return 1;
+}
 
 static int CountOccurrences(string value, string token)
 {
@@ -41,6 +57,25 @@ static int CountOccurrences(string value, string token)
 	{
 		count++;
 		offset += token.Length;
+	}
+
+	return count;
+}
+
+static int CountPdfPages(byte[] data)
+{
+	string pdf = Encoding.Latin1.GetString(data);
+	const string marker = "/Type /Page";
+	int count = 0;
+	int offset = 0;
+	while ((offset = pdf.IndexOf(marker, offset, StringComparison.Ordinal)) >= 0)
+	{
+		int suffix = offset + marker.Length;
+		if (suffix == pdf.Length || !char.IsLetter(pdf[suffix]))
+		{
+			count++;
+		}
+		offset = suffix;
 	}
 
 	return count;

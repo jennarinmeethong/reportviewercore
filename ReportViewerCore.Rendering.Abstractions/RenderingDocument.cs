@@ -40,6 +40,17 @@ public sealed class ReportDocument
 		{
 			throw new ArgumentException("A report document must contain at least one page.", nameof(pages));
 		}
+
+		for (int index = 0; index < Pages.Count; index++)
+		{
+			ArgumentNullException.ThrowIfNull(Pages[index], nameof(pages));
+			RenderSize size = Pages[index].Size;
+			if (!float.IsFinite(size.Width) || !float.IsFinite(size.Height) || size.Width <= 0 || size.Height <= 0)
+			{
+				throw new ArgumentException($"Report page {index} has invalid dimensions.", nameof(pages));
+			}
+			ArgumentNullException.ThrowIfNull(Pages[index].Draw, nameof(pages));
+		}
 	}
 
 	public IReadOnlyList<ReportPage> Pages { get; }

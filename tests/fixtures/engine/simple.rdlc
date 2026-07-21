@@ -35,7 +35,7 @@
                 </TablixRow>
               </TablixRows>
             </TablixBody>
-            <DataSetName>Items</DataSetName>
+            <DataSetName>  Items  </DataSetName>
           </Tablix>
         </ReportItems>
         <Height>10cm</Height>

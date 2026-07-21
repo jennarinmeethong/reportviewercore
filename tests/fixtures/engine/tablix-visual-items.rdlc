@@ -12,7 +12,7 @@
         <TablixRows>
           <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>Cell visuals</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
           <TablixRow><Height>8cm</Height><TablixCells><TablixCell><CellContents>
-            <Rectangle Name="CellFrame"><Left>0.2cm</Left><Top>0.2cm</Top><Width>4cm</Width><Height>2cm</Height><Style><BackgroundColor>#E6EEF8</BackgroundColor><BorderColor>blue</BorderColor></Style></Rectangle>
+            <Rectangle Name="CellFrame"><Left>0.2cm</Left><Top>0.2cm</Top><Width>4cm</Width><Height>2cm</Height><Style><BackgroundColor>#E6EEF8</BackgroundColor><BorderColor>blue</BorderColor></Style><ReportItems><Textbox Name="NestedCellText"><Left>0.3cm</Left><Top>0.2cm</Top><Width>3cm</Width><Height>0.5cm</Height><Paragraphs><Paragraph><TextRuns><TextRun><Value>Nested cell text</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox></ReportItems></Rectangle>
             <Line Name="CellRule"><Left>0.2cm</Left><Top>2.5cm</Top><Width>4cm</Width><Height>0cm</Height><Style><BorderColor>red</BorderColor></Style></Line>
             <Chart Name="CellChart"><Title>Sales in cell</Title><DataSetName>Items</DataSetName><CategoryExpression>=Fields!Name.Value</CategoryExpression><ValueExpression>=Fields!Amount.Value</ValueExpression><Left>0.5cm</Left><Top>3cm</Top><Width>8cm</Width><Height>4cm</Height></Chart>
           </CellContents></TablixCell></TablixCells></TablixRow>

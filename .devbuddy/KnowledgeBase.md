@@ -103,3 +103,19 @@
 - Shared RDLC empty-state behavior should be checked beyond HTML; PDF signature plus XLSX/DOCX text proves the placement survives all portable backends.
 - Keep the page-source bridge contract testable: empty `PageCount` and zero/negative page dimensions must throw `InvalidDataException` before any canvas callback is created.
 - For the cross-platform sample, build the Release project once and run its generated DLL directly when `dotnet run` stalls in the local build host; the direct sample emits the same seven smoke artifacts and is independently validator-checked.
+- When an RDLC body mixes direct tablixes or textboxes with top-level subreports, collect the child `ReportDocument` pages and render them after the parent placements with the child page's existing offset wrapper; otherwise the parser can silently drop subreport output.
+- Validate shared page dimensions for finiteness as well as positivity. `NaN` bypasses a simple `<= 0` check and can otherwise surface as renderer-specific failures.
+- A Word document should not receive a trailing page break after its final captured page; use `pages.Count - 1` as the boundary so consumers do not display an empty page.
+- PDF hyperlink rectangles must account for `AdvanceY` in vertical text directions; an `AdvanceX`-only rectangle has zero width/coverage for valid vertical glyph runs.
+- Treat `//host/path` as an external network-path reference rather than a safe relative hyperlink and reject it in the shared URL policy.
+- Keep the resolved DevBuddy memory path aligned with the active workspace OS; a stale absolute path from another machine makes the next-session handoff appear to have no project memory.
+- Filter non-finite chart values at the RDLC engine boundary; `float.TryParse` accepts `NaN` and infinity tokens, but those values cannot produce meaningful portable chart geometry.
+- Normalize RDLC `ReportName` and `DataSetName` values with `Trim()` before resolver/dataset lookup, while keeping expression trimming inside the allow-listed evaluator.
+- Tablix-cell content needs recursive traversal with the cell and repeated-row offsets; a flat descendant scan loses nested textbox offsets and can render only the first text item correctly.
+- Keep new RDLC string functions narrow and fixture-backed: `Mid` uses one-based start positions, clamps requested length to the source, and returns empty for malformed/non-positive arguments.
+- Comparison operators must be discovered only at top-level expression depth and outside quoted literals; raw `IndexOf` matching misreads string values containing `=` or parentheses.
+- Validate finite dimensions at every direct Skia document/bitmap entry point, not only in `ReportDocument`, because callers can use renderer APIs without constructing a document first.
+- Legacy bridge fixtures need both the legacy data-source/query metadata and schema-valid RDLX section/page structure; v2-only fixtures can render portable output yet fail legacy compilation before RPL fallback is exercised.
+- CI smoke and bridge jobs should execute the published/built DLL directly after compilation; this avoids `dotnet run` build-host stalls and tests the exact artifact that was built for the matching RID.
+- The latest cross-platform v2 gate passed 97 rendering tests, 43 RDLC fixture validations, the seven-artifact smoke sample, and a zero-error solution Release build; remaining checklist items require Windows compatibility runs or broader feature design.
+- Console bridge samples should catch top-level exceptions, print the full exception to stderr, and return exit code 1; otherwise Windows apphost displays only the opaque 0xe0434352 application-error dialog.

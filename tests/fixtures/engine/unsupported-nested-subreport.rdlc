@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <ReportSections><ReportSection>
+    <Body><ReportItems><Rectangle Name="Container"><Left>0cm</Left><Top>0cm</Top><Width>10cm</Width><Height>5cm</Height><ReportItems>
+      <Subreport Name="Nested"><ReportName>Child</ReportName></Subreport>
+    </ReportItems></Rectangle></ReportItems></Body>
+    <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>
+  </ReportSection></ReportSections>
+</Report>

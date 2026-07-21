@@ -2,6 +2,8 @@ using Microsoft.Reporting.WinForms;
 using System.Text;
 using System.Text.Json;
 
+try
+{
 var outputDirectory = args.Length == 0 ? Directory.GetCurrentDirectory() : Path.GetFullPath(args[0]);
 Directory.CreateDirectory(outputDirectory);
 
@@ -20,7 +22,10 @@ byte[] html = report.RenderPortable("HTML", null, out string mimeType, out _, ou
 File.WriteAllBytes(Path.Combine(outputDirectory, $"winforms-legacy-bridge.{extension}"), html);
 string markup = Encoding.UTF8.GetString(html);
 int portablePageCount = CountOccurrences(markup, "class=\"report-page\"");
-int legacyPageCount = report.GetTotalPages(out _);
+byte[] legacyPdf = report.Render("PDF", null, PageCountMode.Actual, out _, out _, out _, out _, out _);
+File.WriteAllBytes(Path.Combine(outputDirectory, "winforms-legacy-bridge-legacy.pdf"), legacyPdf);
+int reportedLegacyPageCount = report.GetTotalPages(out _);
+int legacyPageCount = reportedLegacyPageCount > 0 ? reportedLegacyPageCount : CountPdfPages(legacyPdf);
 bool requiredTextPresent = requiredText.All(text => markup.Contains(text, StringComparison.Ordinal));
 if (portablePageCount != legacyPageCount || portablePageCount != expectedPageCount || !requiredTextPresent)
 {
@@ -28,6 +33,13 @@ if (portablePageCount != legacyPageCount || portablePageCount != expectedPageCou
 }
 
 Console.WriteLine($"WinForms RPL fallback comparison passed: {portablePageCount} page(s), {mimeType}");
+return 0;
+}
+catch (Exception exception)
+{
+Console.Error.WriteLine(exception);
+return 1;
+}
 
 static int CountOccurrences(string value, string token)
 {
@@ -37,6 +49,25 @@ static int CountOccurrences(string value, string token)
 	{
 		count++;
 		offset += token.Length;
+	}
+
+	return count;
+}
+
+static int CountPdfPages(byte[] data)
+{
+	string pdf = Encoding.Latin1.GetString(data);
+	const string marker = "/Type /Page";
+	int count = 0;
+	int offset = 0;
+	while ((offset = pdf.IndexOf(marker, offset, StringComparison.Ordinal)) >= 0)
+	{
+		int suffix = offset + marker.Length;
+		if (suffix == pdf.Length || !char.IsLetter(pdf[suffix]))
+		{
+			count++;
+		}
+		offset = suffix;
 	}
 
 	return count;

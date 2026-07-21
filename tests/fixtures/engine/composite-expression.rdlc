@@ -18,6 +18,7 @@
           <DataSetName>Items</DataSetName>
         </Tablix>
         <Textbox Name="Greeting" Top="2cm"><TextRuns><TextRun><Value>="Greeting: " &amp; Parameters!Greeting.Value</Value></TextRun></TextRuns></Textbox>
+        <Textbox Name="LiteralEquality" Top="3cm"><TextRuns><TextRun><Value>=IIF(&quot;A=B&quot; = &quot;A=B&quot;, &quot;Literal match&quot;, &quot;Literal miss&quot;)</Value></TextRun></TextRuns></Textbox>
       </ReportItems></Body>
       <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>
     </ReportSection>

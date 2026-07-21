@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <ReportSections><ReportSection>
+    <Body><ReportItems>
+      <Tablix Name="ParentTable"><TablixBody><TablixColumns><TablixColumn><Width>6cm</Width></TablixColumn></TablixColumns><TablixRows>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>Parent tablix</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>=Fields!Name.Value</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+      </TablixRows></TablixBody><DataSetName>Items</DataSetName><Top>0cm</Top><Left>0cm</Left>
+      </Tablix>
+      <Subreport Name="ChildReport"><ReportName>Child</ReportName><Left>0cm</Left><Top>4cm</Top></Subreport>
+      <Textbox Name="Standalone"><Left>0cm</Left><Top>12cm</Top><Width>8cm</Width><Height>0.7cm</Height><Paragraphs><Paragraph><TextRuns><TextRun><Value>Standalone parent item</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox>
+    </ReportItems></Body>
+    <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>
+  </ReportSection></ReportSections>
+</Report>

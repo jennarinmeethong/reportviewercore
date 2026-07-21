@@ -50,7 +50,7 @@ jobs:
 
       - name: Run native smoke sample
         if: matrix.execute == true
-        run: dotnet run --project ReportViewerCore.Sample.CrossPlatform/ReportViewerCore.Sample.CrossPlatform.csproj --no-restore --configuration Release -- ./artifacts/ci-smoke
+        run: dotnet ReportViewerCore.Sample.CrossPlatform/bin/Release/net10.0/${{ matrix.rid }}/publish/ReportViewerCore.Sample.CrossPlatform.dll ./artifacts/ci-smoke
 
       - name: Upload smoke artifacts
         if: always() && matrix.execute == true
@@ -84,7 +84,7 @@ jobs:
         run: dotnet build ReportViewerCore.Sample.LegacyBridge/ReportViewerCore.Sample.LegacyBridge.csproj --no-restore --configuration Release --nologo -m:1 -p:UseSharedCompilation=false
 
       - name: Run legacy v2 bridge sample
-        run: dotnet run --project ReportViewerCore.Sample.LegacyBridge/ReportViewerCore.Sample.LegacyBridge.csproj --no-restore --configuration Release -- ./artifacts/windows-legacy-bridge
+        run: dotnet ReportViewerCore.Sample.LegacyBridge/bin/Release/net10.0/ReportViewerCore.Sample.LegacyBridge.dll ./artifacts/windows-legacy-bridge
 
       - name: Restore WinForms legacy v2 bridge sample
         run: dotnet restore ReportViewerCore.Sample.WinForms.LegacyBridge/ReportViewerCore.Sample.WinForms.LegacyBridge.csproj --nologo
@@ -93,7 +93,7 @@ jobs:
         run: dotnet build ReportViewerCore.Sample.WinForms.LegacyBridge/ReportViewerCore.Sample.WinForms.LegacyBridge.csproj --no-restore --configuration Release --nologo -m:1 -p:UseSharedCompilation=false
 
       - name: Run WinForms legacy v2 bridge sample
-        run: dotnet run --project ReportViewerCore.Sample.WinForms.LegacyBridge/ReportViewerCore.Sample.WinForms.LegacyBridge.csproj --no-restore --configuration Release -- ./artifacts/windows-winforms-legacy-bridge
+        run: dotnet ReportViewerCore.Sample.WinForms.LegacyBridge/bin/Release/net10.0-windows/ReportViewerCore.Sample.WinForms.LegacyBridge.dll ./artifacts/windows-winforms-legacy-bridge
 
       - name: Upload Windows bridge artifacts
         if: always()

@@ -25,6 +25,10 @@ public sealed class SkiaPdfDocument : IRenderDocument
 		{
 			throw new InvalidOperationException("End the current PDF page before starting another page.");
 		}
+		if (!float.IsFinite(size.Width) || !float.IsFinite(size.Height) || size.Width <= 0 || size.Height <= 0)
+		{
+			throw new ArgumentOutOfRangeException(nameof(size), "PDF page dimensions must be finite and greater than zero.");
+		}
 
 		SKCanvas canvas = _document.BeginPage(size.Width, size.Height);
 		_currentPage = new SkiaRenderCanvas(canvas, size, Fonts);
