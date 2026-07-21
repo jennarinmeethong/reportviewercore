@@ -25,6 +25,7 @@ Every RDLC in `engine/` is copied into the test output and validated as non-empt
 | `composite-expression.rdlc`, `string-functions.rdlc`, `string-functions-advanced.rdlc`, `is-nothing.rdlc`, `visibility.rdlc` | Allow-listed expressions/string functions, search/replace, null checks, boolean composition, and initial hidden state |
 | `sorted-tablix.rdlc`, `culture-sorted-tablix.rdlc` | Stable row sorting and culture-specific decimal sorting |
 | `grouped-tablix.rdlc`, `nested-grouped-tablix.rdlc`, `grouped-null-keys.rdlc` | Scoped grouping, nested prefix scopes, null keys, headers, subtotals, and aggregates |
+| `sibling-group-branches.rdlc`, `sibling-group-no-header.rdlc`, `sibling-group-start-pagebreak.rdlc`, `sibling-group-start-end-pagebreak.rdlc`, `nested-sibling-group-branches.rdlc`, `nested-sibling-child-end-pagebreak.rdlc`, `nested-sibling-single-root.rdlc`, `nested-sibling-single-root-no-header.rdlc` | Terminal and nested sibling row-group branches rendered as independent group/detail sections with optional static header, recursive dynamic/static child ordering, single-root nested branches, leading/trailing static child, root interstitial static member, and branch page-break coverage |
 | `no-rows-message.rdlc` | Empty tablix `NoRowsMessage` rendering |
 | `scoped-aggregates.rdlc` | `First`, `Last`, `Count`, `Min`, and `Max` over the materialized scope |
 | `grouped-pagebreak.rdlc`, `nested-group-pagebreak.rdlc` | Supported grouped `Between` page breaks at outer and nested scopes |

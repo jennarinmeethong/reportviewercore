@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <DataSets><DataSet Name="Items"><Fields><Field Name="Category"><DataField>Category</DataField></Field><Field Name="Region"><DataField>Region</DataField></Field><Field Name="Name"><DataField>Name</DataField></Field></Fields></DataSet></DataSets>
+  <ReportSections><ReportSection>
+    <Body><ReportItems><Tablix Name="SiblingStartBreak">
+      <TablixBody><TablixColumns><TablixColumn><Width>12cm</Width></TablixColumn></TablixColumns><TablixRows>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>Sibling start break</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Category: " &amp; Fields!Category.Value &amp; " (" &amp; CountRows() &amp; ")"</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Category detail: " &amp; Fields!Name.Value</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Region: " &amp; Fields!Region.Value &amp; " (" &amp; CountRows() &amp; ")"</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Region detail: " &amp; Fields!Name.Value</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+      </TablixRows></TablixBody>
+      <TablixRowHierarchy><TablixMembers><TablixMember><KeepWithGroup>After</KeepWithGroup></TablixMember><TablixMember><Group Name="CategoryGroup"><GroupExpressions><GroupExpression>=Fields!Category.Value</GroupExpression></GroupExpressions></Group></TablixMember><TablixMember><Group Name="RegionGroup"><GroupExpressions><GroupExpression>=Fields!Region.Value</GroupExpression></GroupExpressions><PageBreak><BreakLocation>Start</BreakLocation></PageBreak></Group></TablixMember></TablixMembers></TablixRowHierarchy>
+      <DataSetName>Items</DataSetName>
+    </Tablix></ReportItems></Body>
+    <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>
+  </ReportSection></ReportSections></Report>

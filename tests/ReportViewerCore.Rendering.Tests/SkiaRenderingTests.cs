@@ -805,6 +805,173 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
+	public void Rdlc_engine_renders_terminal_sibling_row_group_branches()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "sibling-group-branches.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = "A", Region = "X", Name = "Alpha" },
+				new { Category = "A", Region = "Y", Name = "Beta" },
+				new { Category = "B", Region = "X", Name = "Gamma" }
+			}
+		}));
+
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		html.Should().Contain("Sibling branches").And.Contain("Category: A (2)").And.Contain("Category: B (1)").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Category detail: Alpha").And.Contain("Static interstitial section").And.Contain("Region detail: Gamma");
+	}
+
+	[Fact]
+	public void Rdlc_engine_renders_sibling_row_group_branches_without_a_static_header()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "sibling-group-no-header.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = "A", Region = "X", Name = "Alpha" },
+				new { Category = "A", Region = "Y", Name = "Beta" },
+				new { Category = "B", Region = "X", Name = "Gamma" }
+			}
+		}));
+
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		document.Pages.Should().HaveCount(1);
+		html.Should().Contain("Category: A (2)").And.Contain("Category: B (1)").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Category detail: Alpha").And.Contain("Region detail: Gamma").And.Contain("Grand total rows: 3");
+	}
+
+	[Fact]
+	public void Rdlc_engine_starts_sibling_branch_groups_on_explicit_page_breaks()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "sibling-group-start-pagebreak.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = "A", Region = "X", Name = "Alpha" },
+				new { Category = "A", Region = "Y", Name = "Beta" },
+				new { Category = "B", Region = "X", Name = "Gamma" }
+			}
+		}));
+
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		document.Pages.Should().HaveCount(3);
+		html.Should().Contain("Sibling start break").And.Contain("Category: A (2)").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Category detail: Gamma");
+	}
+
+	[Fact]
+	public void Rdlc_engine_supports_start_and_end_sibling_branch_page_breaks()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "sibling-group-start-end-pagebreak.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = "A", Region = "X", Name = "Alpha" },
+				new { Category = "A", Region = "Y", Name = "Beta" },
+				new { Category = "B", Region = "X", Name = "Gamma" }
+			}
+		}));
+
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		document.Pages.Should().HaveCount(4);
+		html.Should().Contain("Sibling start-and-end break").And.Contain("Category: A (2)").And.Contain("Static interstitial section").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Category detail: Gamma").And.Contain("Grand total rows: 3");
+	}
+
+	[Fact]
+	public void Rdlc_engine_propagates_nested_child_end_break_to_static_subtotal()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-sibling-child-end-pagebreak.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = "A", Region = "X", Name = "Alpha", Amount = 10 },
+				new { Category = "A", Region = "Y", Name = "Beta", Amount = 20 },
+				new { Category = "B", Region = "X", Name = "Gamma", Amount = 30 }
+			}
+		}));
+
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		document.Pages.Should().HaveCount(4);
+		html.Should().Contain("Nested child end break").And.Contain("Category: A").And.Contain("Category section: A").And.Contain("Category section: B").And.Contain("Category child wrapper: A").And.Contain("Category child wrapper: B").And.Contain("Region: X").And.Contain("Region: Y").And.Contain("Category subtotal: A (30)").And.Contain("Category subtotal: B (30)").And.Contain("Name detail: Gamma");
+	}
+
+	[Fact]
+	public void Rdlc_engine_renders_nested_sibling_row_group_branches()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-sibling-group-branches.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = "A", Region = "X", Name = "Alpha", Amount = 10 },
+				new { Category = "A", Region = "Y", Name = "Beta", Amount = 20 },
+				new { Category = "B", Region = "X", Name = "Gamma", Amount = 30 }
+			}
+		}));
+
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		document.Pages.Should().HaveCount(8);
+		html.Should().Contain("Nested sibling branches").And.Contain("Category: A (2)").And.Contain("Category child section: A").And.Contain("Category child section: B").And.Contain("Region: X (1)").And.Contain("Region: Y (1)").And.Contain("Category subtotal: A (30)").And.Contain("Category subtotal: B (30)").And.Contain("Child name: Alpha (1)").And.Contain("Child name detail: Beta").And.Contain("Name: Alpha (1)").And.Contain("Nested detail: Gamma").And.Contain("Name detail: Beta").And.Contain("Grand total: 60");
+	}
+
+	[Fact]
+	public void Rdlc_engine_renders_nested_sibling_children_under_a_single_root_group()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-sibling-single-root.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = "A", Region = "X", Name = "Alpha", Amount = 10 },
+				new { Category = "A", Region = "Y", Name = "Beta", Amount = 20 },
+				new { Category = "B", Region = "X", Name = "Gamma", Amount = 30 }
+			}
+		}));
+
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		document.Pages.Should().HaveCount(2);
+		html.Should().Contain("Nested single root").And.Contain("Category: A (2)").And.Contain("Category: B (1)").And.Contain("Category section: A").And.Contain("Region: Y (1)").And.Contain("Category subtotal: B (30)").And.Contain("Child name: Alpha (1)").And.Contain("Child name detail: Gamma").And.Contain("Grand total: 60");
+	}
+
+	[Fact]
+	public void Rdlc_engine_renders_nested_sibling_children_without_a_static_header()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-sibling-single-root-no-header.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = "A", Region = "X", Name = "Alpha", Amount = 10 },
+				new { Category = "A", Region = "Y", Name = "Beta", Amount = 20 },
+				new { Category = "B", Region = "X", Name = "Gamma", Amount = 30 }
+			}
+		}));
+
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		document.Pages.Should().HaveCount(2);
+		html.Should().Contain("Category: A (2)").And.Contain("Category: B (1)").And.Contain("Category section: A").And.Contain("Region: Y (1)").And.Contain("Category subtotal: B (30)").And.Contain("Child name: Alpha (1)").And.Contain("Child name detail: Gamma").And.Contain("Grand total: 60");
+	}
+
+	[Fact]
 	public void Rdlc_engine_rejects_unsupported_group_pagebreak_locations()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "unsupported-pagebreak.rdlc");

@@ -2,6 +2,13 @@
 
 ## Decisions
 
+- Supported sibling row-group trees may omit a static leading header; row-template indexing treats leading and trailing static members as independent optional rows while preserving the explicit sibling layout contract.
+- The sibling-member compatibility slice also permits one root-level trailing static total row after the supported dynamic branches; it receives the whole tablix scope, while ambiguous static layouts remain rejected.
+- Sibling branch `PageBreak/BreakLocation=End` is implemented as a boundary before the next materialized group in that branch, avoiding a trailing blank page; linear groups and other unsupported locations remain unchanged.
+- Sibling branch `PageBreak/BreakLocation=Start` is implemented before every non-empty group instance, including the first; the same start boundary is combined with the before-next boundary for constrained `StartAndEnd` support.
+- Constrained sibling `PageBreak/BreakLocation=StartAndEnd` combines the start boundary with the existing before-next-materialized-group boundary, so it does not manufacture an empty trailing page when the final group has no following content.
+- Sibling `End`/`StartAndEnd` boundaries propagate to supported following sibling members and root trailing totals; this preserves page-break intent without creating a page after the final materialized item.
+
 - Cross-platform v2 uses .NET 10 and a backend-neutral rendering boundary. SkiaSharp provides drawing/image/PDF surfaces and HarfBuzzSharp provides OpenType shaping on Windows, macOS, and Linux. WinForms remains a Windows display adapter; legacy GDI, Uniscribe, printing, TIFF, and EMF stay isolated in the compatibility line until explicitly migrated.
 - The migration is incremental: establish and test the portable rendering slice before rewiring the legacy ReportViewer engine. Existing packages are not described as cross-platform-safe yet.
 - The headless v2 seam accepts a backend-neutral `ReportDocument` and injected `IReportRenderer` implementations. `LocalReport` now owns the constrained RDLC-to-document workflow, while `ServerReport` only delegates to an injected transport; neither exposes GDI types or implicit Windows credentials.
@@ -80,3 +87,4 @@
 - Legacy bridge samples force a real v1 PDF render before reading page metadata and fall back to counting `/Type /Page` objects when the legacy `ExecutionInfo.TotalPages` value remains zero; both headless and WinForms bridge comparisons pass locally on Windows.
 - Allow-listed comparison parsing must be quote- and parenthesis-aware; raw `IndexOf` matching can split inside a literal such as `"A=B"` and silently change report output.
 - Reject non-finite font and direct Skia page/bitmap dimensions before native calls, and fall back empty RDLC font-family values to Arial so malformed layout inputs remain deterministic.
+- Sibling row-group branches are supported as independent group/detail sections when the row template contract is explicit (static header, one header per dynamic member, one detail row per leaf branch, and optional trailing static subtotal row); branch-level `PageBreak/BreakLocation=Between` moves to the next page, while other static layouts, footers, and break locations remain rejected.

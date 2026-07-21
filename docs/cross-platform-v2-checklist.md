@@ -11,7 +11,7 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] Constrained RDLC engine: tablixes, sorting, multi-level group scopes, headers/footers, subtotals, images, charts, hyperlinks, nested items, subreports, parameters, expressions, and pagination.
 - [x] `IReportPageSource`/`ReportPageSourceAdapter` seam for legacy RPL/SPB pagination.
 - [x] Windows display adapter and opt-in legacy `RenderPortable` bridges.
-- [x] 97 regression tests, 43 content-complete RDLC fixtures, RID publish workflow, seven `2.0.0-preview.1` packages, samples, and migration docs.
+- [x] 105 regression tests, 51 content-complete RDLC fixtures, RID publish workflow, seven `2.0.0-preview.1` packages, samples, and migration docs.
 - [x] Preserve basic charts, rectangles, and lines placed inside tablix cells with cell-column and repeated-row offsets.
 - [x] Preserve bar/column/line/area/pie/doughnut chart semantics through the shared fixture and native backend output parts; unsupported Radar remains an explicit negative case.
 
@@ -33,6 +33,7 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] Traverse nested `TablixMember` group expressions in document order for constrained scopes.
 - [x] Honor constrained grouped `PageBreak` metadata only when the configured member-scope prefix changes.
 - [ ] Support arbitrary nested `TablixMember` trees, recursive headers, subtotals, totals, and page breaks.
+- [x] Support terminal sibling row-group branches and nested dynamic branch trees, including single-root nested sibling trees, with independent group/detail sections, optional static headers, explicit static wrapper members with recursive dynamic → static → dynamic children, child `End` boundaries before wrapper subtotals, and nested child `StartAndEnd` breaks, scoped leading/trailing static child rows, explicit root-level interstitial static members, an optional root-level trailing total row, and branch-specific `Between`/`Start`/`End`/`StartAndEnd` page breaks; other static layouts, footers, and break locations remain deferred.
 - [x] Reject branching row-member trees and unsupported grouped page-break locations explicitly until the page model can represent their layout semantics.
 - [x] Add scoped `First`, `Last`, and `Count` aggregates through the allow-listed expression host.
 - [x] Add allow-listed conditional visibility for standalone report items and tablix-cell text/images.
