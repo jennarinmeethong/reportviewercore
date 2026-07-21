@@ -13,11 +13,11 @@
       <Body>
         <ReportItems>
           <Rectangle Name="ChartFrame">
-            <Left>0.5cm</Left><Top>0.5cm</Top><Width>18cm</Width><Height>10cm</Height>
+            <Left>0.5cm</Left><Top>0.5cm</Top><Width>20cm</Width><Height>24cm</Height>
             <Style><BackgroundColor>#F4F7FB</BackgroundColor><BorderColor>#336699</BorderColor><BorderWidth>1pt</BorderWidth></Style>
           </Rectangle>
           <Line Name="ChartRule">
-            <Left>0.5cm</Left><Top>11cm</Top><Width>18cm</Width><Height>0cm</Height>
+            <Left>0.5cm</Left><Top>25.5cm</Top><Width>20cm</Width><Height>0cm</Height>
             <Style><BorderColor>blue</BorderColor><BorderWidth>1pt</BorderWidth></Style>
           </Line>
           <Textbox Name="ChartCaption">
@@ -28,7 +28,37 @@
             <Title>Sales by item</Title><DataSetName>Items</DataSetName>
             <CategoryExpression>=Fields!Name.Value</CategoryExpression>
             <ValueExpression>=Fields!Amount.Value</ValueExpression>
-            <Left>1cm</Left><Top>1cm</Top><Width>16cm</Width><Height>8cm</Height>
+            <Left>1cm</Left><Top>1cm</Top><Width>8cm</Width><Height>7cm</Height>
+          </Chart>
+          <Chart Name="TrendChart">
+            <ChartType>Line</ChartType><Title>Trend</Title><DataSetName>Items</DataSetName>
+            <CategoryExpression>=Fields!Name.Value</CategoryExpression>
+            <ValueExpression>=Fields!Amount.Value</ValueExpression>
+            <Left>10cm</Left><Top>1cm</Top><Width>8cm</Width><Height>7cm</Height>
+          </Chart>
+          <Chart Name="AreaChart">
+            <ChartType>Area</ChartType><Title>Area trend</Title><DataSetName>Items</DataSetName>
+            <CategoryExpression>=Fields!Name.Value</CategoryExpression>
+            <ValueExpression>=Fields!Amount.Value</ValueExpression>
+            <Left>1cm</Left><Top>9cm</Top><Width>8cm</Width><Height>7cm</Height>
+          </Chart>
+          <Chart Name="ShareChart">
+            <ChartType>Pie</ChartType><Title>Share</Title><DataSetName>Items</DataSetName>
+            <CategoryExpression>=Fields!Name.Value</CategoryExpression>
+            <ValueExpression>=Fields!Amount.Value</ValueExpression>
+            <Left>10cm</Left><Top>9cm</Top><Width>8cm</Width><Height>7cm</Height>
+          </Chart>
+          <Chart Name="ColumnChart">
+            <ChartType>Column</ChartType><Title>Column trend</Title><DataSetName>Items</DataSetName>
+            <CategoryExpression>=Fields!Name.Value</CategoryExpression>
+            <ValueExpression>=Fields!Amount.Value</ValueExpression>
+            <Left>1cm</Left><Top>17cm</Top><Width>8cm</Width><Height>7cm</Height>
+          </Chart>
+          <Chart Name="DoughnutChart">
+            <ChartType>Doughnut</ChartType><Title>Share ring</Title><DataSetName>Items</DataSetName>
+            <CategoryExpression>=Fields!Name.Value</CategoryExpression>
+            <ValueExpression>=Fields!Amount.Value</ValueExpression>
+            <Left>10cm</Left><Top>17cm</Top><Width>8cm</Width><Height>7cm</Height>
           </Chart>
         </ReportItems>
       </Body>

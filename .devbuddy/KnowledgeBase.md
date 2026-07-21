@@ -72,7 +72,7 @@
 - Multi-value RDLC defaults must preserve every `<DefaultValue>` as a collection before `Join` evaluation; scalar parameters continue to use the first default value.
 - Dependency audits must exclude the intentional Windows adapter when checking portable package closure; the six cross-platform packages stay free of Windows desktop/System.Drawing dependencies.
 - Unsupported RDLC Map, GaugePanel, and CustomReportItem nodes should fail explicitly in the constrained engine instead of being silently dropped; this keeps migration gaps observable and safe.
-- Basic bar charts are the only constrained chart type; reject column, line, area, pie, and other chart types until their backend-neutral contracts exist.
+- Constrained chart support now allow-lists bar, column, line, area, pie, and doughnut through the shared `RenderChartType` contract; reject radar and other chart types until their geometry and semantics are explicitly modeled.
 - The full solution builds with zero errors but currently emits NU1903 advisories for `System.Security.Cryptography.Xml`; keep the warning visible and resolve it through an explicit dependency review before stable release.
 - Keep `IsNothing` allow-listed and null-focused: resolve only field/parameter atoms and do not turn it into a general-purpose expression evaluator.
 - A flattened `TablixMember` walk cannot faithfully render sibling row-group branches or `PageBreak` locations such as `Start`/`End`; reject those shapes before pagination instead of silently treating them as a linear group or a `Between` break.
@@ -85,3 +85,5 @@
 - Every renderer that emits hyperlinks must reject non-relative, non-HTTP(S), and non-mailto schemes; OpenXML relationships are clickable external targets and cannot rely on HTML/PDF validation happening elsewhere.
 - Keep hyperlink validation in the shared rendering abstraction; duplicated backend-local validators can diverge on malformed or scheme-relative inputs.
 - Composite tablix group keys must remain structural through grouping and prefix tracking; joining values with a control-character delimiter can collide when report data legitimately contains that character.
+- When expanding a chart contract across backends, keep the existing `DrawBarChart` entry point as a compatibility shim and add a default `DrawChart` method. This lets custom v2 canvases continue to compile while built-in HTML, Skia, and OpenXML renderers opt into richer chart kinds.
+- Every implemented RDLC feature should have content in a fixture that exercises the real engine path. Keep comprehensive fixtures for mixed chart kinds and international text styles/directions, then assert semantic content and native output parts across every backend covered by the feature.

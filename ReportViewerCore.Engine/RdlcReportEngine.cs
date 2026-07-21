@@ -417,7 +417,7 @@ public sealed class RdlcReportEngine
 				}
 				foreach (PlacedChart placement in pageCharts)
 				{
-					canvas.DrawBarChart(placement.Title, placement.Bars, placement.Destination, placement.Font, RenderColor.Black);
+					canvas.DrawChart(placement.Type, placement.Title, placement.Bars, placement.Destination, placement.Font, RenderColor.Black);
 				}
 			}));
 		}
@@ -1115,10 +1115,16 @@ public sealed class RdlcReportEngine
 	private static PlacedChart ReadChart(XElement chart, XNamespace ns, RdlcDataContext context, float leftOffset = 0, float topOffset = 0)
 	{
 		string chartType = (chart.Attribute("ChartType")?.Value ?? chart.Element(ns + "ChartType")?.Value ?? string.Empty).Trim();
-		if (!string.IsNullOrWhiteSpace(chartType) && !chartType.Equals("Bar", StringComparison.OrdinalIgnoreCase))
+		RenderChartType type = chartType.ToLowerInvariant() switch
 		{
-			throw new NotSupportedException($"The constrained RDLC engine does not support '{chartType}' chart types.");
-		}
+			"" or "bar" => RenderChartType.Bar,
+			"column" => RenderChartType.Column,
+			"line" => RenderChartType.Line,
+			"area" => RenderChartType.Area,
+			"pie" => RenderChartType.Pie,
+			"doughnut" => RenderChartType.Doughnut,
+			_ => throw new NotSupportedException($"The constrained RDLC engine does not support '{chartType}' chart types.")
+		};
 
 		string dataSetName = chart.Element(ns + "DataSetName")?.Value ?? string.Empty;
 		string categoryExpression = chart.Element(ns + "CategoryExpression")?.Value ?? "=Fields!Name.Value";
@@ -1135,6 +1141,7 @@ public sealed class RdlcReportEngine
 		}
 
 		return new PlacedChart(
+			type,
 			chart.Element(ns + "Title")?.Value ?? chart.Attribute("Name")?.Value ?? "Chart",
 			bars,
 			new RenderRect(leftOffset + ParseSize(chart.Element(ns + "Left")?.Value, 0), topOffset + ParseSize(chart.Element(ns + "Top")?.Value, 0), ParseSize(chart.Element(ns + "Width")?.Value, 360), ParseSize(chart.Element(ns + "Height")?.Value, 220)),
@@ -1243,7 +1250,7 @@ public sealed class RdlcReportEngine
 		public string? Hyperlink { get; init; }
 	}
 	private sealed record PlacedImage(RenderImage Image, RenderRect Destination);
-	private sealed record PlacedChart(string Title, IReadOnlyList<RenderChartBar> Bars, RenderRect Destination, FontRequest Font);
+	private sealed record PlacedChart(RenderChartType Type, string Title, IReadOnlyList<RenderChartBar> Bars, RenderRect Destination, FontRequest Font);
 	private sealed record PlacedShape(RenderRect Bounds, bool IsLine, RenderColor? Fill, RenderColor? Stroke, float StrokeWidth);
 
 	private sealed class OffsetRenderCanvas : IRenderCanvas
@@ -1271,6 +1278,7 @@ public sealed class RdlcReportEngine
 		public void DrawHyperlink(string text, RenderPoint baseline, FontRequest font, RenderColor color, string url, TextDirection direction = TextDirection.LeftToRight) => _inner.DrawHyperlink(text, Offset(baseline), font, color, url, direction);
 		public void DrawImage(RenderImage image, RenderRect destination) => _inner.DrawImage(image, Offset(destination));
 		public void DrawBarChart(string title, IReadOnlyList<RenderChartBar> bars, RenderRect destination, FontRequest font, RenderColor color) => _inner.DrawBarChart(title, bars, Offset(destination), font, color);
+		public void DrawChart(RenderChartType chartType, string title, IReadOnlyList<RenderChartBar> points, RenderRect destination, FontRequest font, RenderColor color) => _inner.DrawChart(chartType, title, points, Offset(destination), font, color);
 		public void Dispose() { }
 
 		private RenderPoint Offset(RenderPoint point) => new(point.X + _left, point.Y + _top);

@@ -114,7 +114,70 @@ internal sealed class HtmlRenderCanvas : IRenderCanvas
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(title);
 		ArgumentNullException.ThrowIfNull(bars);
+		DrawChart(RenderChartType.Bar, title, bars, destination, font, color);
+	}
+
+	public void DrawChart(RenderChartType chartType, string title, IReadOnlyList<RenderChartBar> points, RenderRect destination, FontRequest font, RenderColor color)
+	{
+		ThrowIfDisposed();
+		ArgumentNullException.ThrowIfNull(title);
+		ArgumentNullException.ThrowIfNull(points);
 		AppendText(title, new RenderPoint(destination.X + 4, destination.Y + font.Size + 2), font with { Bold = true }, color, TextDirection.LeftToRight, null);
+
+		switch (chartType)
+		{
+			case RenderChartType.Bar:
+				DrawBars(points, destination, font, color);
+				break;
+			case RenderChartType.Column:
+				DrawColumns(points, destination, font, color);
+				break;
+			case RenderChartType.Line:
+			case RenderChartType.Area:
+				DrawLineChart(chartType == RenderChartType.Area, points, destination, font, color);
+				break;
+			case RenderChartType.Pie:
+				DrawPieChart(points, destination, font, color);
+				break;
+			case RenderChartType.Doughnut:
+				DrawDoughnutChart(points, destination, font, color);
+				break;
+			default:
+				throw new ArgumentOutOfRangeException(nameof(chartType), chartType, "Unknown chart type.");
+		}
+	}
+
+	private void DrawColumns(IReadOnlyList<RenderChartBar> points, RenderRect destination, FontRequest font, RenderColor color)
+	{
+		if (points.Count == 0)
+		{
+			return;
+		}
+
+		float plotTop = destination.Y + font.Size + 8;
+		float plotBottom = destination.Bottom - font.Size - 18;
+		float min = MathF.Min(0, points.Min(point => point.Value));
+		float max = MathF.Max(1, points.Max(point => point.Value));
+		float range = MathF.Max(1, max - min);
+		float plotHeight = MathF.Max(1, plotBottom - plotTop);
+		float baseline = plotBottom - (0 - min) / range * plotHeight;
+		float slotWidth = (destination.Width - 8) / points.Count;
+		float columnWidth = MathF.Max(2, slotWidth * 0.65f);
+		for (int index = 0; index < points.Count; index++)
+		{
+			RenderChartBar point = points[index];
+			float x = destination.X + 4 + index * slotWidth + (slotWidth - columnWidth) / 2;
+			float valueY = plotBottom - (point.Value - min) / range * plotHeight;
+			float y = MathF.Min(baseline, valueY);
+			float height = MathF.Max(2, MathF.Abs(baseline - valueY));
+			FillRectangle(new RenderRect(x, y, columnWidth, height), PieColor(color, index));
+			AppendText(point.Label, new RenderPoint(x, destination.Bottom - font.Size), font, color, TextDirection.LeftToRight, null);
+			AppendText(point.Value.ToString("0.##", CultureInfo.InvariantCulture), new RenderPoint(x, y - 2), font, color, TextDirection.LeftToRight, null);
+		}
+	}
+
+	private void DrawBars(IReadOnlyList<RenderChartBar> bars, RenderRect destination, FontRequest font, RenderColor color)
+	{
 		float max = MathF.Max(1, bars.Count == 0 ? 1 : bars.Max(bar => MathF.Abs(bar.Value)));
 		float rowHeight = MathF.Max(font.Size * 1.8f, (destination.Height - font.Size - 8) / MathF.Max(1, bars.Count));
 		float labelWidth = MathF.Min(destination.Width * 0.35f, 120);
@@ -127,6 +190,142 @@ internal sealed class HtmlRenderCanvas : IRenderCanvas
 			FillRectangle(new RenderRect(destination.X + labelWidth, y + 2, width, MathF.Max(2, font.Size)), color);
 			AppendText(bar.Value.ToString("0.##", CultureInfo.InvariantCulture), new RenderPoint(destination.X + labelWidth + width + 4, y + font.Size), font, color, TextDirection.LeftToRight, null);
 		}
+	}
+
+	private void DrawLineChart(bool area, IReadOnlyList<RenderChartBar> points, RenderRect destination, FontRequest font, RenderColor color)
+	{
+		if (points.Count == 0)
+		{
+			return;
+		}
+
+		float plotTop = destination.Y + font.Size + 8;
+		float plotBottom = destination.Bottom - font.Size - 4;
+		float min = MathF.Min(0, points.Min(point => point.Value));
+		float max = MathF.Max(1, points.Max(point => point.Value));
+		float range = MathF.Max(1, max - min);
+		float step = points.Count == 1 ? 0 : (destination.Width - 8) / (points.Count - 1);
+		var coordinates = points.Select((point, index) => new RenderPoint(
+			destination.X + 4 + index * step,
+			plotBottom - (point.Value - min) / range * MathF.Max(1, plotBottom - plotTop))).ToArray();
+		string linePoints = string.Join(' ', coordinates.Select(point => $"{Number(point.X)},{Number(point.Y)}"));
+		if (area)
+		{
+			string polygonPoints = $"{Number(coordinates[0].X)},{Number(plotBottom)} {linePoints} {Number(coordinates[^1].X)},{Number(plotBottom)}";
+			_markup.Append("<polygon points=\"").Append(polygonPoints).Append("\" fill=\"").Append(Color(color)).Append("\" fill-opacity=\"0.35\" stroke=\"none\"/>");
+		}
+		_markup.Append("<polyline points=\"").Append(linePoints).Append("\" fill=\"none\" stroke=\"").Append(Color(color)).Append("\" stroke-width=\"").Append(Number(MathF.Max(1, font.Size / 10))).Append("\"/>");
+		for (int index = 0; index < points.Count; index++)
+		{
+			AppendText(points[index].Label, new RenderPoint(coordinates[index].X - font.Size, plotBottom + font.Size), font, color, TextDirection.LeftToRight, null);
+		}
+	}
+
+	private void DrawPieChart(IReadOnlyList<RenderChartBar> points, RenderRect destination, FontRequest font, RenderColor color)
+	{
+		float total = points.Sum(point => MathF.Max(0, point.Value));
+		if (total <= 0)
+		{
+			return;
+		}
+
+		float diameter = MathF.Min(destination.Width * 0.58f, destination.Height - font.Size - 8);
+		float centerX = destination.X + 4 + diameter / 2;
+		float centerY = destination.Y + font.Size + 8 + diameter / 2;
+		float startAngle = -90;
+		for (int index = 0; index < points.Count; index++)
+		{
+			float sweep = MathF.Max(0, points[index].Value) / total * 360;
+			float endAngle = startAngle + sweep;
+			RenderColor sliceColor = PieColor(color, index);
+			if (sweep >= 359.99f)
+			{
+				_markup.Append("<circle cx=\"").Append(Number(centerX)).Append("\" cy=\"").Append(Number(centerY)).Append("\" r=\"").Append(Number(diameter / 2)).Append("\" fill=\"").Append(Color(sliceColor)).Append("\"/>");
+			}
+			else
+			{
+				string path = PiePath(centerX, centerY, diameter / 2, startAngle, endAngle);
+				_markup.Append("<path d=\"").Append(path).Append("\" fill=\"").Append(Color(sliceColor)).Append("\"/>");
+			}
+			AppendText(points[index].Label, new RenderPoint(destination.X + diameter + 12, destination.Y + font.Size + 16 + index * (font.Size * 1.4f)), font, color, TextDirection.LeftToRight, null);
+			startAngle = endAngle;
+		}
+	}
+
+	private void DrawDoughnutChart(IReadOnlyList<RenderChartBar> points, RenderRect destination, FontRequest font, RenderColor color)
+	{
+		float total = points.Sum(point => MathF.Max(0, point.Value));
+		if (total <= 0)
+		{
+			return;
+		}
+
+		float diameter = MathF.Min(destination.Width * 0.58f, destination.Height - font.Size - 8);
+		float centerX = destination.X + 4 + diameter / 2;
+		float centerY = destination.Y + font.Size + 8 + diameter / 2;
+		float startAngle = -90;
+		float innerRadius = diameter * 0.23f;
+		for (int index = 0; index < points.Count; index++)
+		{
+			float sweep = MathF.Max(0, points[index].Value) / total * 360;
+			float endAngle = startAngle + sweep;
+			RenderColor sliceColor = PieColor(color, index);
+			if (sweep >= 359.99f)
+			{
+				_markup.Append("<circle cx=\"").Append(Number(centerX)).Append("\" cy=\"").Append(Number(centerY)).Append("\" r=\"").Append(Number(diameter / 2)).Append("\" fill=\"").Append(Color(sliceColor)).Append("\"/>");
+			}
+			else
+			{
+				string path = DoughnutPath(centerX, centerY, diameter / 2, innerRadius, startAngle, endAngle);
+				_markup.Append("<path d=\"").Append(path).Append("\" fill=\"").Append(Color(sliceColor)).Append("\" fill-rule=\"evenodd\"/>");
+			}
+			AppendText(points[index].Label, new RenderPoint(destination.X + diameter + 12, destination.Y + font.Size + 16 + index * (font.Size * 1.4f)), font, color, TextDirection.LeftToRight, null);
+			startAngle = endAngle;
+		}
+		_markup.Append("<circle cx=\"").Append(Number(centerX)).Append("\" cy=\"").Append(Number(centerY)).Append("\" r=\"").Append(Number(innerRadius)).Append("\" fill=\"white\"/>");
+	}
+
+	private static string DoughnutPath(float centerX, float centerY, float outerRadius, float innerRadius, float startAngle, float endAngle)
+	{
+		static RenderPoint Point(float x, float y, float r, float degrees)
+		{
+			float radians = degrees * MathF.PI / 180;
+			return new RenderPoint(x + r * MathF.Cos(radians), y + r * MathF.Sin(radians));
+		}
+
+		RenderPoint outerStart = Point(centerX, centerY, outerRadius, startAngle);
+		RenderPoint outerEnd = Point(centerX, centerY, outerRadius, endAngle);
+		RenderPoint innerEnd = Point(centerX, centerY, innerRadius, endAngle);
+		RenderPoint innerStart = Point(centerX, centerY, innerRadius, startAngle);
+		int largeArc = endAngle - startAngle > 180 ? 1 : 0;
+		return $"M {Number(outerStart.X)},{Number(outerStart.Y)} A {Number(outerRadius)},{Number(outerRadius)} 0 {largeArc} 1 {Number(outerEnd.X)},{Number(outerEnd.Y)} L {Number(innerEnd.X)},{Number(innerEnd.Y)} A {Number(innerRadius)},{Number(innerRadius)} 0 {largeArc} 0 {Number(innerStart.X)},{Number(innerStart.Y)} Z";
+	}
+
+	private static string PiePath(float centerX, float centerY, float radius, float startAngle, float endAngle)
+	{
+		static RenderPoint Point(float x, float y, float r, float degrees)
+		{
+			float radians = degrees * MathF.PI / 180;
+			return new RenderPoint(x + r * MathF.Cos(radians), y + r * MathF.Sin(radians));
+		}
+
+		RenderPoint start = Point(centerX, centerY, radius, startAngle);
+		RenderPoint end = Point(centerX, centerY, radius, endAngle);
+		int largeArc = endAngle - startAngle > 180 ? 1 : 0;
+		return $"M {Number(centerX)},{Number(centerY)} L {Number(start.X)},{Number(start.Y)} A {Number(radius)},{Number(radius)} 0 {largeArc} 1 {Number(end.X)},{Number(end.Y)} Z";
+	}
+
+	private static RenderColor PieColor(RenderColor baseColor, int index)
+	{
+		RenderColor[] palette =
+		{
+			baseColor,
+			new RenderColor(52, 152, 219, baseColor.Alpha),
+			new RenderColor(46, 204, 113, baseColor.Alpha),
+			new RenderColor(241, 196, 15, baseColor.Alpha),
+			new RenderColor(231, 76, 60, baseColor.Alpha)
+		};
+		return palette[index % palette.Length];
 	}
 
 	public void Dispose()

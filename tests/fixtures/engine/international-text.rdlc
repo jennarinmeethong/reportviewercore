@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <ReportSections><ReportSection>
+    <Body><ReportItems>
+      <Textbox Name="Latin"><Left>1cm</Left><Top>1cm</Top><Width>8cm</Width><Height>1cm</Height><Style><FontFamily>Arial</FontFamily><FontSize>14pt</FontSize><FontWeight>Bold</FontWeight><FontStyle>Italic</FontStyle><Color>#123456</Color></Style><Paragraphs><Paragraph><TextRuns><TextRun><Value>Latin styled report text</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox>
+      <Textbox Name="Thai"><Left>1cm</Left><Top>3cm</Top><Width>8cm</Width><Height>1cm</Height><Style><FontFamily>Arial</FontFamily><FontSize>14pt</FontSize><Color>red</Color></Style><Paragraphs><Paragraph><TextRuns><TextRun><Value>ภาษาไทย รายงาน</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox>
+      <Textbox Name="Arabic"><Left>1cm</Left><Top>5cm</Top><Width>8cm</Width><Height>1cm</Height><Style><FontFamily>Arial</FontFamily><FontSize>14pt</FontSize><WritingMode>rl-tb</WritingMode></Style><Paragraphs><Paragraph><TextRuns><TextRun><Value>تقرير عربي</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox>
+      <Textbox Name="Cjk"><Left>1cm</Left><Top>7cm</Top><Width>8cm</Width><Height>1cm</Height><Style><FontFamily>Arial</FontFamily><FontSize>14pt</FontSize></Style><Paragraphs><Paragraph><TextRuns><TextRun><Value>日本語レポート</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox>
+      <Textbox Name="Vertical"><Left>12cm</Left><Top>1cm</Top><Width>4cm</Width><Height>8cm</Height><Style><FontFamily>Arial</FontFamily><FontSize>14pt</FontSize><WritingMode>tb-rl</WritingMode></Style><Paragraphs><Paragraph><TextRuns><TextRun><Value>縦書き styled text</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox>
+    </ReportItems></Body>
+    <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>
+  </ReportSection></ReportSections>
+</Report>

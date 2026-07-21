@@ -2,6 +2,6 @@
 <Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
   <DataSets><DataSet Name="Items"><Fields><Field Name="Name"><DataField>Name</DataField></Field><Field Name="Amount"><DataField>Amount</DataField></Field></Fields></DataSet></DataSets>
   <ReportSections><ReportSection><Body><ReportItems>
-    <Chart Name="ColumnChart"><ChartType>Column</ChartType><Title>Unsupported column chart</Title><DataSetName>Items</DataSetName><CategoryExpression>=Fields!Name.Value</CategoryExpression><ValueExpression>=Fields!Amount.Value</ValueExpression><Left>0cm</Left><Top>0cm</Top><Width>10cm</Width><Height>6cm</Height></Chart>
+    <Chart Name="ColumnChart"><ChartType>Column</ChartType><Title>Column chart</Title><DataSetName>Items</DataSetName><CategoryExpression>=Fields!Name.Value</CategoryExpression><ValueExpression>=Fields!Amount.Value</ValueExpression><Left>0cm</Left><Top>0cm</Top><Width>10cm</Width><Height>6cm</Height></Chart>
   </ReportItems></Body><PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight></ReportSection></ReportSections>
 </Report>

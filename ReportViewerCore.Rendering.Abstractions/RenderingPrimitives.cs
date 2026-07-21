@@ -61,3 +61,13 @@ public sealed record RenderImageRequest(
 	ReadOnlyMemory<byte> EncodedData);
 
 public sealed record RenderChartBar(string Label, float Value);
+
+public enum RenderChartType
+{
+	Bar,
+	Column,
+	Line,
+	Area,
+	Pie,
+	Doughnut
+}

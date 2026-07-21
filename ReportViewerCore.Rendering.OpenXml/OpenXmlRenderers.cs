@@ -95,14 +95,19 @@ internal sealed class OpenXmlRenderCanvas : IRenderCanvas
 
 	public void DrawBarChart(string title, IReadOnlyList<RenderChartBar> bars, RenderRect destination, FontRequest font, RenderColor color)
 	{
+		DrawChart(RenderChartType.Bar, title, bars, destination, font, color);
+	}
+
+	public void DrawChart(RenderChartType chartType, string title, IReadOnlyList<RenderChartBar> points, RenderRect destination, FontRequest font, RenderColor color)
+	{
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(title);
-		ArgumentNullException.ThrowIfNull(bars);
-		_charts.Add(new OpenXmlChart(title, bars.ToArray(), destination));
+		ArgumentNullException.ThrowIfNull(points);
+		_charts.Add(new OpenXmlChart(chartType, title, points.ToArray(), destination));
 		_texts.Add(new OpenXmlText(title, new RenderPoint(destination.X, destination.Y + font.Size), font with { Bold = true }, color, TextDirection.LeftToRight, null));
-		for (int index = 0; index < bars.Count; index++)
+		for (int index = 0; index < points.Count; index++)
 		{
-			RenderChartBar bar = bars[index];
+			RenderChartBar bar = points[index];
 			float y = destination.Y + font.Size + 8 + index * MathF.Max(font.Size * 1.8f, 20);
 			_texts.Add(new OpenXmlText(bar.Label, new RenderPoint(destination.X, y), font, color, TextDirection.LeftToRight, null));
 			_texts.Add(new OpenXmlText(bar.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture), new RenderPoint(destination.X + destination.Width * 0.6f, y), font, color, TextDirection.LeftToRight, null));
@@ -133,7 +138,7 @@ internal sealed record OpenXmlPage(
 	IReadOnlyList<OpenXmlChart> Charts,
 	IReadOnlyList<OpenXmlShape> Shapes);
 
-internal sealed record OpenXmlChart(string Title, IReadOnlyList<RenderChartBar> Bars, RenderRect Destination);
+internal sealed record OpenXmlChart(RenderChartType Type, string Title, IReadOnlyList<RenderChartBar> Bars, RenderRect Destination);
 
 internal sealed record OpenXmlShape(RenderRect Bounds, bool IsLine, RenderColor? Fill, RenderColor? Stroke, float StrokeWidth, RenderPoint? Start = null, RenderPoint? End = null);
 
@@ -439,21 +444,70 @@ internal static class OpenXmlPackageWriter
 			new XElement(c + "chart",
 				new XElement(c + "autoTitleDeleted", new XAttribute("val", 0)),
 				new XElement(c + "title", new XElement(c + "tx", new XElement(c + "rich", new XElement(a + "bodyPr"), new XElement(a + "lstStyle"), new XElement(a + "p", new XElement(a + "r", new XElement(a + "rPr", new XAttribute("lang", "en-US")), new XElement(a + "t", chart.Title))))), new XElement(c + "layout")),
-				new XElement(c + "plotArea", new XElement(c + "layout"), BarChart(chart)),
+				new XElement(c + "plotArea", new XElement(c + "layout"), ChartElement(chart)),
 				new XElement(c + "plotVisOnly", new XAttribute("val", 1)),
 				new XElement(c + "dispBlanksAs", new XAttribute("val", "gap"))));
 	}
 
+	private static XElement ChartElement(OpenXmlChart chart) => chart.Type switch
+	{
+		RenderChartType.Bar => BarChart(chart),
+		RenderChartType.Column => ColumnChart(chart),
+		RenderChartType.Line => LineChart(chart),
+		RenderChartType.Area => AreaChart(chart),
+		RenderChartType.Pie => PieChart(chart),
+		RenderChartType.Doughnut => DoughnutChart(chart),
+		_ => throw new ArgumentOutOfRangeException(nameof(chart.Type), chart.Type, "Unknown chart type.")
+	};
+
 	private static XElement BarChart(OpenXmlChart chart)
 	{
 		XNamespace c = Chart;
-		var series = new XElement(c + "ser",
+		return new XElement(c + "barChart", new XElement(c + "barDir", new XAttribute("val", "bar")), new XElement(c + "grouping", new XAttribute("val", "clustered")), new XElement(c + "varyColors", new XAttribute("val", 0)), ChartSeries(chart), new XElement(c + "axId", new XAttribute("val", 1)), new XElement(c + "axId", new XAttribute("val", 2)));
+	}
+
+	private static XElement ColumnChart(OpenXmlChart chart)
+	{
+		XNamespace c = Chart;
+		return new XElement(c + "barChart", new XElement(c + "barDir", new XAttribute("val", "col")), new XElement(c + "grouping", new XAttribute("val", "clustered")), new XElement(c + "varyColors", new XAttribute("val", 0)), ChartSeries(chart), new XElement(c + "axId", new XAttribute("val", 1)), new XElement(c + "axId", new XAttribute("val", 2)));
+	}
+
+	private static XElement LineChart(OpenXmlChart chart)
+	{
+		XNamespace c = Chart;
+		return new XElement(c + "lineChart", new XElement(c + "grouping", new XAttribute("val", "standard")), ChartSeries(chart, includeMarker: true), new XElement(c + "axId", new XAttribute("val", 1)), new XElement(c + "axId", new XAttribute("val", 2)));
+	}
+
+	private static XElement AreaChart(OpenXmlChart chart)
+	{
+		XNamespace c = Chart;
+		return new XElement(c + "areaChart", new XElement(c + "grouping", new XAttribute("val", "standard")), ChartSeries(chart), new XElement(c + "axId", new XAttribute("val", 1)), new XElement(c + "axId", new XAttribute("val", 2)));
+	}
+
+	private static XElement PieChart(OpenXmlChart chart)
+	{
+		XNamespace c = Chart;
+		return new XElement(c + "pieChart", new XElement(c + "varyColors", new XAttribute("val", 1)), ChartSeries(chart));
+	}
+
+	private static XElement DoughnutChart(OpenXmlChart chart)
+	{
+		XNamespace c = Chart;
+		return new XElement(c + "doughnutChart", new XElement(c + "varyColors", new XAttribute("val", 1)), new XElement(c + "holeSize", new XAttribute("val", 50)), ChartSeries(chart));
+	}
+
+	private static XElement ChartSeries(OpenXmlChart chart, bool includeMarker = false)
+	{
+		XNamespace c = Chart;
+		var categories = new XElement(c + "cat", new XElement(c + "strLit", new XElement(c + "ptCount", new XAttribute("val", chart.Bars.Count)), chart.Bars.Select((bar, index) => new XElement(c + "pt", new XAttribute("idx", index), new XElement(c + "v", bar.Label)))));
+		var values = new XElement(c + "val", new XElement(c + "numLit", new XElement(c + "formatCode", "General"), new XElement(c + "ptCount", new XAttribute("val", chart.Bars.Count)), chart.Bars.Select((bar, index) => new XElement(c + "pt", new XAttribute("idx", index), new XElement(c + "v", bar.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))))));
+		return new XElement(c + "ser",
 			new XElement(c + "idx", new XAttribute("val", 0)),
 			new XElement(c + "order", new XAttribute("val", 0)),
 			new XElement(c + "tx", new XElement(c + "v", chart.Title)),
-			new XElement(c + "cat", new XElement(c + "strLit", new XElement(c + "ptCount", new XAttribute("val", chart.Bars.Count)), chart.Bars.Select((bar, index) => new XElement(c + "pt", new XAttribute("idx", index), new XElement(c + "v", bar.Label))))),
-			new XElement(c + "val", new XElement(c + "numLit", new XElement(c + "formatCode", "General"), new XElement(c + "ptCount", new XAttribute("val", chart.Bars.Count)), chart.Bars.Select((bar, index) => new XElement(c + "pt", new XAttribute("idx", index), new XElement(c + "v", bar.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)))))));
-		return new XElement(c + "barChart", new XElement(c + "barDir", new XAttribute("val", "bar")), new XElement(c + "grouping", new XAttribute("val", "clustered")), new XElement(c + "varyColors", new XAttribute("val", 0)), series, new XElement(c + "axId", new XAttribute("val", 1)), new XElement(c + "axId", new XAttribute("val", 2)));
+			categories,
+			values,
+			includeMarker ? new XElement(c + "marker", new XElement(c + "symbol", new XAttribute("val", "circle"))) : null);
 	}
 
 	private static XElement PictureElement(OpenXmlImage image, int id, string relationshipId)

@@ -577,20 +577,34 @@ public sealed class SkiaRenderingTests
 		{
 			["Items"] = new[] { new { Name = "Alpha", Amount = 10 } }
 		}));
-		createDocument.Should().Throw<NotSupportedException>().WithMessage("*Line*");
+		createDocument.Should().Throw<NotSupportedException>().WithMessage("*Radar*");
 	}
 
 	[Fact]
-	public void Rdlc_engine_rejects_column_charts_until_the_renderer_contract_supports_them()
+	public void Rdlc_engine_renders_column_charts_from_a_dedicated_fixture()
 	{
-		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "unsupported-column-chart.rdlc");
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "column-chart.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
 
-		Action createDocument = () => new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
 		{
 			["Items"] = new[] { new { Name = "Alpha", Amount = 10 } }
 		}));
-		createDocument.Should().Throw<NotSupportedException>().WithMessage("*Column*");
+
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		html.Should().Contain("Column chart").And.Contain("<rect").And.Contain("Alpha");
+		using var pdf = new SkiaPdfRenderer();
+		pdf.Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelChart = new StreamReader(excelArchive.GetEntry("xl/charts/chart1_1.xml")!.Open());
+		excelChart.ReadToEnd().Should().Contain("barDir").And.Contain("val=\"col\"");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordChart = new StreamReader(wordArchive.GetEntry("word/charts/chart1.xml")!.Open());
+		wordChart.ReadToEnd().Should().Contain("barDir").And.Contain("val=\"col\"");
 	}
 
 	[Fact]
@@ -668,6 +682,34 @@ public sealed class SkiaRenderingTests
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
 		html.Should().Contain("fill=\"#FF0000\"").And.Contain("writing-mode=\"tb\"").And.Contain("縦書き styled text");
+	}
+
+	[Fact]
+	public void Rdlc_engine_covers_international_text_styles_and_directions_from_one_fixture()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "international-text.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition);
+
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		html.Should().Contain("Latin styled report text").And.Contain("ภาษาไทย รายงาน").And.Contain("تقرير عربي").And.Contain("日本語レポート").And.Contain("縦書き styled text").And.Contain("font-weight=\"700\"").And.Contain("font-style=\"italic\"").And.Contain("direction=\"rtl\"").And.Contain("writing-mode=\"tb\"").And.Contain("fill=\"#123456\"");
+
+		using var pdfRenderer = new SkiaPdfRenderer();
+		pdfRenderer.Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var sheetReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		string sheet = sheetReader.ReadToEnd();
+		sheet.Should().Contain("Latin styled report text").And.Contain("ภาษาไทย รายงาน").And.Contain("تقرير عربي").And.Contain("日本語レポート").And.Contain("縦書き styled text");
+		using var stylesReader = new StreamReader(excelArchive.GetEntry("xl/styles.xml")!.Open());
+		stylesReader.ReadToEnd().Should().Contain("readingOrder").And.Contain("textRotation");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var documentReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		string wordDocument = documentReader.ReadToEnd();
+		wordDocument.Should().Contain("Latin styled report text").And.Contain("ภาษาไทย รายงาน").And.Contain("تقرير عربي").And.Contain("日本語レポート").And.Contain("縦書き styled text").And.Contain("w:textDirection").And.Contain("w:b").And.Contain("w:i");
 	}
 
 	[Fact]
@@ -955,7 +997,7 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
-	public void Rdlc_engine_renders_basic_bar_charts_to_all_backends()
+	public void Rdlc_engine_renders_bar_and_column_charts_to_all_backends()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "chart.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -966,24 +1008,64 @@ public sealed class SkiaRenderingTests
 		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(rows));
 
 		ReportOutput html = new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html));
-		System.Text.Encoding.UTF8.GetString(html.Data.Span).Should().Contain("Sales by item").And.Contain("Report layout").And.Contain("Alpha").And.Contain("Beta").And.Contain("<rect").And.Contain("<line");
+		System.Text.Encoding.UTF8.GetString(html.Data.Span).Should().Contain("Sales by item").And.Contain("Column trend").And.Contain("Report layout").And.Contain("Alpha").And.Contain("Beta").And.Contain("<rect").And.Contain("<line");
 		using var pdf = new SkiaPdfRenderer();
 		pdf.Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
-		var semanticChart = new ReportDocument(new[]
-		{
-			new ReportPage(new RenderSize(200, 100), canvas => canvas.DrawBarChart("Sales by item", new[] { new RenderChartBar("Alpha", 10), new RenderChartBar("Beta", 20) }, new RenderRect(0, 0, 180, 90), new FontRequest("Arial", 12), RenderColor.Black))
-		});
-		ReportOutput excel = new ExcelOpenXmlRenderer().Render(semanticChart, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
 		using var archive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
 		using var sheet = new StreamReader(archive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
 		sheet.ReadToEnd().Should().Contain("Sales by item").And.Contain("Alpha").And.Contain("20");
 		archive.GetEntry("xl/charts/chart1_1.xml").Should().NotBeNull();
+		archive.Entries.Count(entry => entry.FullName.StartsWith("xl/charts/", StringComparison.Ordinal)).Should().Be(6);
+		using (var columnChartReader = new StreamReader(archive.GetEntry("xl/charts/chart1_5.xml")!.Open()))
+		{
+			columnChartReader.ReadToEnd().Should().Contain("barChart").And.Contain("barDir").And.Contain("val=\"col\"");
+		}
+		using (var doughnutChartReader = new StreamReader(archive.GetEntry("xl/charts/chart1_6.xml")!.Open()))
+		{
+			doughnutChartReader.ReadToEnd().Should().Contain("doughnutChart").And.Contain("holeSize");
+		}
 		archive.GetEntry("xl/drawings/drawing1.xml").Should().NotBeNull();
 		archive.GetEntry("xl/drawings/_rels/drawing1.xml.rels").Should().NotBeNull();
-		ReportOutput word = new WordOpenXmlRenderer().Render(semanticChart, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
 		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
 		wordArchive.GetEntry("word/charts/chart1.xml").Should().NotBeNull();
+		wordArchive.Entries.Count(entry => entry.FullName.StartsWith("word/charts/", StringComparison.Ordinal)).Should().Be(6);
 		wordArchive.GetEntry("word/_rels/document.xml.rels").Should().NotBeNull();
+	}
+
+	[Fact]
+	public void Rdlc_engine_renders_line_area_and_pie_charts_with_semantic_backend_output()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "chart.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[] { new { Name = "Alpha", Amount = 10 }, new { Name = "Beta", Amount = 20 }, new { Name = "Gamma", Amount = 5 } }
+		}));
+
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		html.Should().Contain("Sales by item").And.Contain("Trend").And.Contain("Area trend").And.Contain("Share").And.Contain("Column trend").And.Contain("Share ring").And.Contain("<rect").And.Contain("<line").And.Contain("<polyline").And.Contain("<polygon").And.Contain("<path");
+		using var pdfRenderer = new SkiaPdfRenderer();
+		pdfRenderer.Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var archive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		string chartXml = string.Join('\n', archive.Entries.Where(entry => entry.FullName.StartsWith("xl/charts/", StringComparison.Ordinal)).Select(entry =>
+		{
+			using var reader = new StreamReader(entry.Open());
+			return reader.ReadToEnd();
+		}));
+		chartXml.Should().Contain("barChart").And.Contain("barDir").And.Contain("val=\"col\"").And.Contain("lineChart").And.Contain("areaChart").And.Contain("pieChart").And.Contain("doughnutChart").And.Contain("holeSize");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		string wordChartXml = string.Join('\n', wordArchive.Entries.Where(entry => entry.FullName.StartsWith("word/charts/", StringComparison.Ordinal)).Select(entry =>
+		{
+			using var reader = new StreamReader(entry.Open());
+			return reader.ReadToEnd();
+		}));
+		wordChartXml.Should().Contain("barChart").And.Contain("barDir").And.Contain("val=\"col\"").And.Contain("lineChart").And.Contain("areaChart").And.Contain("pieChart").And.Contain("doughnutChart").And.Contain("holeSize");
 	}
 
 	[Fact]

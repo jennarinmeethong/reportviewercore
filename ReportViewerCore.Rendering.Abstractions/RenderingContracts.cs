@@ -41,6 +41,17 @@ public interface IRenderCanvas : IDisposable
 	void DrawImage(RenderImage image, RenderRect destination);
 
 	void DrawBarChart(string title, IReadOnlyList<RenderChartBar> bars, RenderRect destination, FontRequest font, RenderColor color);
+
+	void DrawChart(RenderChartType chartType, string title, IReadOnlyList<RenderChartBar> points, RenderRect destination, FontRequest font, RenderColor color)
+	{
+		if (chartType == RenderChartType.Bar)
+		{
+			DrawBarChart(title, points, destination, font, color);
+			return;
+		}
+
+		throw new NotSupportedException($"The renderer does not support {chartType} charts.");
+	}
 }
 
 public interface IRenderDocument : IDisposable
