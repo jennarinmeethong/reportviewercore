@@ -136,7 +136,8 @@ internal sealed record OpenXmlPage(
 	IReadOnlyList<OpenXmlText> Texts,
 	IReadOnlyList<OpenXmlImage> Images,
 	IReadOnlyList<OpenXmlChart> Charts,
-	IReadOnlyList<OpenXmlShape> Shapes);
+	IReadOnlyList<OpenXmlShape> Shapes,
+	RenderSize Size);
 
 internal sealed record OpenXmlChart(RenderChartType Type, string Title, IReadOnlyList<RenderChartBar> Bars, RenderRect Destination);
 
@@ -252,7 +253,8 @@ internal static class OpenXmlPackageWriter
 				}
 				body.Add(new XElement(Word + "p", new XElement(Word + "r", new XElement(Word + "br", new XAttribute(Word + "type", "page")))));
 			}
-			body.Add(new XElement(Word + "sectPr", new XElement(Word + "pgSz", new XAttribute(Word + "w", "11906"), new XAttribute(Word + "h", "16838"))));
+			OpenXmlPage firstPage = pages[0];
+			body.Add(new XElement(Word + "sectPr", new XElement(Word + "pgSz", new XAttribute(Word + "w", ToTwips(firstPage.Size.Width)), new XAttribute(Word + "h", ToTwips(firstPage.Size.Height)))));
 			WriteEntry(archive, "word/document.xml", documentXml);
 			WriteEntry(archive, "word/_rels/document.xml.rels", relationships);
 		}
@@ -267,7 +269,7 @@ internal static class OpenXmlPackageWriter
 		{
 			using var canvas = new OpenXmlRenderCanvas(page.Size);
 			page.Render(canvas);
-				pages.Add(new OpenXmlPage(canvas.Texts, canvas.Images, canvas.Charts, canvas.Shapes));
+				pages.Add(new OpenXmlPage(canvas.Texts, canvas.Images, canvas.Charts, canvas.Shapes, canvas.Size));
 		}
 		return pages;
 	}
@@ -278,7 +280,9 @@ internal static class OpenXmlPackageWriter
 	{
 		IReadOnlyList<(int Row, int Column, OpenXmlText Text)> cells = ExcelCells(page);
 		var sheetData = new XElement(Spreadsheet + "sheetData", cells.GroupBy(cell => cell.Row).OrderBy(pair => pair.Key).Select(pair => new XElement(Spreadsheet + "row", new XAttribute("r", pair.Key), pair.Select(cell => ExcelCell(cell.Column, pair.Key, cell.Text)))));
-		var sheet = new XElement(Spreadsheet + "worksheet", new XAttribute(XNamespace.Xmlns + "r", OfficeDocument), sheetData);
+		int maxRow = cells.Count == 0 ? 1 : cells.Max(cell => cell.Row);
+		int maxColumn = cells.Count == 0 ? 1 : cells.Max(cell => cell.Column);
+		var sheet = new XElement(Spreadsheet + "worksheet", new XAttribute(XNamespace.Xmlns + "r", OfficeDocument), new XElement(Spreadsheet + "dimension", new XAttribute("ref", $"A1:{ExcelColumn(maxColumn)}{maxRow}")), sheetData);
 		var hyperlinks = cells.Where(cell => cell.Text.Url is not null).Select((cell, index) => new XElement(Spreadsheet + "hyperlink", new XAttribute("ref", ExcelColumn(cell.Column) + cell.Row), new XAttribute(OfficeDocument + "id", $"rId{index + 1}"))).ToArray();
 		if (hyperlinks.Length > 0)
 		{

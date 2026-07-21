@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <DataSets><DataSet Name="Items"><Fields><Field Name="Name"><DataField>Name</DataField></Field></Fields></DataSet></DataSets>
+  <ReportSections><ReportSection>
+    <Body><ReportItems><Tablix Name="Items">
+      <TablixBody><TablixColumns><TablixColumn><Width>14cm</Width></TablixColumn></TablixColumns><TablixRows>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>String functions</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Len=" &amp; Len(Fields!Name.Value) &amp; " Trim=" &amp; Trim(Fields!Name.Value) &amp; " Upper=" &amp; UCase(Fields!Name.Value) &amp; " Lower=" &amp; LCase(Fields!Name.Value)</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+      </TablixRows></TablixBody>
+      <DataSetName>Items</DataSetName>
+    </Tablix></ReportItems></Body>
+    <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>
+  </ReportSection></ReportSections>
+</Report>

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import sys
 import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
@@ -96,6 +97,54 @@ def validate_smoke(directory: Path) -> None:
     print(f"validated smoke artifacts: {len(files)} files")
 
 
+def validate_test_results(path: Path) -> None:
+    if not path.is_file():
+        fail(f"test result file does not exist: {path}")
+    if path.stat().st_size == 0:
+        fail(f"test result file is empty: {path}")
+
+    try:
+        root = ET.parse(path).getroot()
+    except (ET.ParseError, OSError) as error:
+        fail(f"test result file is not valid XML: {path}: {error}")
+
+    test_cases = [element for element in root.iter() if element.tag.rsplit("}", 1)[-1] == "UnitTestResult"]
+    if not test_cases:
+        fail(f"test result file contains no test cases: {path}")
+    failures = [element for element in test_cases if element.attrib.get("outcome") != "Passed"]
+    if failures:
+        failed_names = ", ".join(element.attrib.get("testName", "<unnamed>") for element in failures[:5])
+        fail(f"test result file contains non-passed tests ({len(failures)}): {failed_names}")
+    print(f"validated test results: {len(test_cases)} passed tests")
+
+
+def validate_fixtures(source_directory: Path, output_directory: Path | None = None) -> None:
+    source_files = sorted(source_directory.glob("*.rdlc"))
+    if not source_files:
+        fail(f"no RDLC fixtures found in {source_directory}")
+
+    for path in source_files:
+        if path.stat().st_size == 0:
+            fail(f"fixture is empty: {path}")
+        try:
+            root = ET.parse(path).getroot()
+        except (ET.ParseError, OSError) as error:
+            fail(f"fixture is not valid XML: {path}: {error}")
+        if root.tag.rsplit("}", 1)[-1] != "Report":
+            fail(f"fixture has an unexpected root element: {path}")
+
+    if output_directory is not None:
+        output_files = {path.name for path in output_directory.glob("*.rdlc")}
+        missing = [path.name for path in source_files if path.name not in output_files]
+        if missing:
+            fail(f"test output is missing fixtures: {', '.join(missing)}")
+        extras = sorted(output_files - {path.name for path in source_files})
+        if extras:
+            fail(f"test output contains fixtures not present in source: {', '.join(extras)}")
+
+    print(f"validated RDLC fixtures: {len(source_files)} source files")
+
+
 def validate_zip_only(path: Path) -> None:
     try:
         with zipfile.ZipFile(path) as archive:
@@ -111,13 +160,22 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--packages", type=Path)
     parser.add_argument("--smoke", type=Path)
+    parser.add_argument("--test-results", type=Path)
+    parser.add_argument("--fixtures", type=Path)
+    parser.add_argument("--fixture-output", type=Path)
     arguments = parser.parse_args()
-    if arguments.packages is None and arguments.smoke is None:
-        parser.error("provide --packages and/or --smoke")
+    if arguments.fixture_output is not None and arguments.fixtures is None:
+        parser.error("--fixture-output requires --fixtures")
+    if arguments.packages is None and arguments.smoke is None and arguments.test_results is None and arguments.fixtures is None:
+        parser.error("provide --packages, --smoke, --test-results, and/or --fixtures")
     if arguments.packages is not None:
         validate_packages(arguments.packages)
     if arguments.smoke is not None:
         validate_smoke(arguments.smoke)
+    if arguments.test_results is not None:
+        validate_test_results(arguments.test_results)
+    if arguments.fixtures is not None:
+        validate_fixtures(arguments.fixtures, arguments.fixture_output)
     return 0
 
 

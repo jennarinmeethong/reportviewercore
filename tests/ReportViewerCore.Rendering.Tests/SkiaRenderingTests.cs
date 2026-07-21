@@ -2,6 +2,7 @@ using FluentAssertions;
 using System.Collections;
 using System.Globalization;
 using System.IO.Compression;
+using System.Xml.Linq;
 using ReportViewerCore.Engine;
 using ReportViewerCore.Headless;
 using ReportViewerCore.Rendering;
@@ -231,7 +232,7 @@ public sealed class SkiaRenderingTests
 		archive.GetEntry("xl/worksheets/_rels/sheet1.xml.rels").Should().NotBeNull();
 		using var sheetReader = new StreamReader(archive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
 		string sheet = sheetReader.ReadToEnd();
-		sheet.Should().Contain("Excel text").And.Contain("s=\"1\"").And.Contain("hyperlinks").And.Contain("ref=\"A3\"").And.Contain("ref=\"A4\"");
+		sheet.Should().Contain("Excel text").And.Contain("s=\"1\"").And.Contain("dimension ref=\"A1:B4\"").And.Contain("hyperlinks").And.Contain("ref=\"A3\"").And.Contain("ref=\"A4\"");
 		using var relationshipReader = new StreamReader(archive.GetEntry("xl/worksheets/_rels/sheet1.xml.rels")!.Open());
 		relationshipReader.ReadToEnd().Should().Contain("https://example.com").And.Contain("mailto:reports@example.com");
 	}
@@ -331,7 +332,7 @@ public sealed class SkiaRenderingTests
 		archive.GetEntry("word/document.xml").Should().NotBeNull();
 		archive.GetEntry("word/_rels/document.xml.rels").Should().NotBeNull();
 		using var documentReader = new StreamReader(archive.GetEntry("word/document.xml")!.Open());
-		documentReader.ReadToEnd().Should().Contain("w:hyperlink");
+		documentReader.ReadToEnd().Should().Contain("w:hyperlink").And.Contain("w:w=\"4000\"").And.Contain("w:h=\"2000\"");
 	}
 
 	[Fact]
@@ -386,6 +387,22 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
+	public void Report_page_source_adapter_rejects_empty_sources()
+	{
+		Action adapt = () => ReportPageSourceAdapter.Adapt(new EmptyPageSource());
+
+		adapt.Should().Throw<InvalidDataException>().WithMessage("*at least one page*");
+	}
+
+	[Fact]
+	public void Report_page_source_adapter_rejects_invalid_page_sizes()
+	{
+		Action adapt = () => ReportPageSourceAdapter.Adapt(new InvalidSizePageSource());
+
+		adapt.Should().Throw<InvalidDataException>().WithMessage("*invalid size for page 0*");
+	}
+
+	[Fact]
 	public void Rdlc_engine_binds_detail_rows_into_backend_neutral_document()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "simple.rdlc");
@@ -406,6 +423,20 @@ public sealed class SkiaRenderingTests
 		document.Pages.Should().ContainSingle();
 		document.Pages[0].Size.Width.Should().BeApproximately(595.28f, 0.1f);
 		html.Should().Contain("Name").And.Contain("Amount").And.Contain("Alpha").And.Contain("Beta").And.Contain("10").And.Contain("20");
+	}
+
+	[Fact]
+	public void Rdlc_engine_resolves_dataset_names_case_insensitively()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "simple.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["items"] = new[] { new { Name = "Case-insensitive", Amount = 7 } }
+		}));
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		html.Should().Contain("Case-insensitive").And.Contain("7");
 	}
 
 	[Fact]
@@ -752,6 +783,20 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
+	public void Rdlc_engine_resolves_allow_listed_string_functions()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "string-functions.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[] { new { Name = " Alpha " } }
+		}));
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		html.Should().Contain("Len=7 Trim=Alpha Upper= ALPHA  Lower= alpha ");
+	}
+
+	[Fact]
 	public void Rdlc_engine_sorts_tablix_rows_before_pagination()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "sorted-tablix.rdlc");
@@ -868,7 +913,7 @@ public sealed class SkiaRenderingTests
 		}));
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("First=Alpha Last=Gamma Count=3");
+		html.Should().Contain("First=Alpha Last=Gamma Count=3 Min=0 Max=10");
 	}
 
 	[Fact]
@@ -984,6 +1029,21 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
+	public void Rdlc_engine_renders_no_rows_message_for_empty_tablix()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "no-rows-message.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = Array.Empty<object>()
+		}));
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		document.Pages.Should().ContainSingle();
+		html.Should().Contain("Empty state").And.Contain("No data available").And.NotContain("Detail:");
+	}
+
+	[Fact]
 	public void Rdlc_engine_resolves_embedded_images_through_the_injected_resolver()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "image.rdlc");
@@ -1069,6 +1129,71 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
+	public void Openxml_renderers_emit_well_formed_xml_for_fixture_chart_outputs()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "chart.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[] { new { Name = "Alpha", Amount = 10 }, new { Name = "Beta", Amount = 20 } }
+		}));
+
+		foreach (ReportOutput output in new[]
+		{
+			new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml)),
+			new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml))
+		})
+		{
+			using var archive = new ZipArchive(new MemoryStream(output.Data.ToArray()), ZipArchiveMode.Read);
+			foreach (ZipArchiveEntry entry in archive.Entries.Where(entry => entry.FullName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)))
+			{
+				using Stream entryStream = entry.Open();
+				Action parse = () => XDocument.Load(entryStream, LoadOptions.PreserveWhitespace);
+				parse.Should().NotThrow($"OpenXML part {entry.FullName} should be well-formed");
+			}
+		}
+	}
+
+	[Fact]
+	public void Openxml_renderers_keep_internal_relationship_targets_valid()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "chart.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[] { new { Name = "Alpha", Amount = 10 }, new { Name = "Beta", Amount = 20 } }
+		}));
+
+		foreach (ReportOutput output in new[]
+		{
+			new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml)),
+			new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml))
+		})
+		{
+			using var archive = new ZipArchive(new MemoryStream(output.Data.ToArray()), ZipArchiveMode.Read);
+			HashSet<string> entries = archive.Entries.Select(entry => entry.FullName).ToHashSet(StringComparer.Ordinal);
+			foreach (ZipArchiveEntry relationshipEntry in archive.Entries.Where(entry => entry.FullName.EndsWith(".rels", StringComparison.OrdinalIgnoreCase)))
+			{
+				using Stream relationshipStream = relationshipEntry.Open();
+				XDocument relationships = XDocument.Load(relationshipStream, LoadOptions.PreserveWhitespace);
+				IReadOnlyList<XElement> relationshipNodes = relationships.Root?.Elements().ToArray() ?? Array.Empty<XElement>();
+				relationshipNodes.Select(node => node.Attribute("Id")?.Value).Should().OnlyHaveUniqueItems();
+				foreach (XElement relationship in relationshipNodes)
+				{
+					if (string.Equals(relationship.Attribute("TargetMode")?.Value, "External", StringComparison.OrdinalIgnoreCase))
+					{
+						continue;
+					}
+
+					string target = relationship.Attribute("Target")?.Value ?? string.Empty;
+					target.Should().NotBeNullOrWhiteSpace();
+					entries.Should().Contain(ResolvePackagePath(relationshipEntry.FullName, target), $"internal relationship target from {relationshipEntry.FullName} should exist");
+				}
+			}
+		}
+	}
+
+	[Fact]
 	public void Rdlc_engine_renders_visual_items_inside_tablix_cells()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "tablix-visual-items.rdlc");
@@ -1139,6 +1264,38 @@ public sealed class SkiaRenderingTests
 		handler.Request.Headers.GetValues("X-Test-Auth").Should().ContainSingle().Which.Should().Be("injected");
 	}
 
+	private static string ResolvePackagePath(string relationshipPath, string target)
+	{
+		string baseDirectory = string.Empty;
+		if (!string.Equals(relationshipPath, "_rels/.rels", StringComparison.Ordinal))
+		{
+			int marker = relationshipPath.LastIndexOf("/_rels/", StringComparison.Ordinal);
+			marker.Should().BeGreaterThanOrEqualTo(0);
+			string sourcePath = relationshipPath[..marker] + "/" + relationshipPath[(marker + 7)..^5];
+			int slash = sourcePath.LastIndexOf('/');
+			baseDirectory = slash >= 0 ? sourcePath[..slash] : string.Empty;
+		}
+
+		var segments = new List<string>();
+		string combined = target.StartsWith("/", StringComparison.Ordinal) ? target[1..] : string.Join('/', new[] { baseDirectory, target }.Where(value => !string.IsNullOrEmpty(value)));
+		foreach (string segment in combined.Split('/', StringSplitOptions.RemoveEmptyEntries))
+		{
+			if (segment == ".")
+			{
+				continue;
+			}
+			if (segment == "..")
+			{
+				segments.Should().NotBeEmpty();
+				segments.RemoveAt(segments.Count - 1);
+				continue;
+			}
+			segments.Add(segment);
+		}
+
+		return string.Join('/', segments);
+	}
+
 	private sealed class RecordingTransport : IReportServerTransport
 	{
 		public ReportServerRenderRequest? Request { get; private set; }
@@ -1195,6 +1352,28 @@ public sealed class SkiaRenderingTests
 		{
 			canvas.Clear(RenderColor.White);
 			canvas.DrawText($"Legacy page {pageIndex + 1}", new RenderPoint(12, 24), new FontRequest("Arial", 12), RenderColor.Black);
+		}
+	}
+
+	private sealed class EmptyPageSource : IReportPageSource
+	{
+		public int PageCount => 0;
+
+		public RenderSize GetPageSize(int pageIndex) => new(240, 120);
+
+		public void RenderPage(int pageIndex, IRenderCanvas canvas)
+		{
+		}
+	}
+
+	private sealed class InvalidSizePageSource : IReportPageSource
+	{
+		public int PageCount => 1;
+
+		public RenderSize GetPageSize(int pageIndex) => new(0, 120);
+
+		public void RenderPage(int pageIndex, IRenderCanvas canvas)
+		{
 		}
 	}
 

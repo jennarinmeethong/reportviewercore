@@ -5,7 +5,7 @@
     <Body><ReportItems><Tablix Name="Items">
       <TablixBody><TablixColumns><TablixColumn><Width>10cm</Width></TablixColumn></TablixColumns><TablixRows>
         <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>Aggregates</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
-        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="First=" &amp; First(Fields!Name.Value) &amp; " Last=" &amp; Last(Fields!Name.Value) &amp; " Count=" &amp; Count(Fields!Amount.Value)</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+        <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="First=" &amp; First(Fields!Name.Value) &amp; " Last=" &amp; Last(Fields!Name.Value) &amp; " Count=" &amp; Count(Fields!Amount.Value) &amp; " Min=" &amp; Min(Fields!Amount.Value) &amp; " Max=" &amp; Max(Fields!Amount.Value)</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
       </TablixRows></TablixBody>
       <DataSetName>Items</DataSetName>
     </Tablix></ReportItems></Body>

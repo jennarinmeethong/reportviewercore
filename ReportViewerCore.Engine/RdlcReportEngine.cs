@@ -221,6 +221,15 @@ public sealed class RdlcReportEngine
 				}
 			}
 
+			string noRowsMessage = tablix.Element(ns + "NoRowsMessage")?.Value.Trim() ?? string.Empty;
+			if (rows.Count == 0 && noRowsMessage.Length > 0)
+			{
+				XElement? messageTextbox = (headerTemplate ?? detailTemplate).Descendants(ns + "Textbox").FirstOrDefault();
+				FontRequest messageFont = messageTextbox is null ? new FontRequest("Arial", 12) : ReadFont(messageTextbox, ns);
+				placements.Add(new PlacedText(noRowsMessage, new RenderPoint(left + 4, top + contentTop + messageFont.Size), messageFont));
+				contentTop += messageFont.Size * 1.5f;
+			}
+
 			if (contentTop == 0)
 			{
 				AddRow(placements, images, charts, shapes, rowTemplates[0], ns, columnWidths, contentTop, null, context, embeddedImages, rows, left, top);
@@ -540,9 +549,20 @@ public sealed class RdlcReportEngine
 
 	private static IEnumerable<object?> ResolveRows(string? dataSetName, RdlcDataContext context)
 	{
-		if (dataSetName is not null && context.DataSets is not null && context.DataSets.TryGetValue(dataSetName, out IEnumerable? rows))
+		if (dataSetName is not null && context.DataSets is not null)
 		{
-			return rows.Cast<object?>();
+			if (context.DataSets.TryGetValue(dataSetName, out IEnumerable? rows))
+			{
+				return rows.Cast<object?>();
+			}
+
+			foreach ((string name, IEnumerable candidateRows) in context.DataSets)
+			{
+				if (string.Equals(name, dataSetName, StringComparison.OrdinalIgnoreCase))
+				{
+					return candidateRows.Cast<object?>();
+				}
+			}
 		}
 		return Enumerable.Empty<object?>();
 	}
@@ -758,6 +778,34 @@ public sealed class RdlcReportEngine
 				{
 					return string.Join(separator, EnumerateValues(multiValue));
 				}
+			}
+
+			return string.Empty;
+		}
+
+		if ((atom.StartsWith("Len(", StringComparison.OrdinalIgnoreCase)
+			|| atom.StartsWith("Trim(", StringComparison.OrdinalIgnoreCase)
+			|| atom.StartsWith("UCase(", StringComparison.OrdinalIgnoreCase)
+			|| atom.StartsWith("LCase(", StringComparison.OrdinalIgnoreCase)) && atom.EndsWith(')'))
+		{
+			int openParenthesis = atom.IndexOf('(');
+			IReadOnlyList<string> arguments = SplitTopLevel(atom[(openParenthesis + 1)..^1], ',');
+			if (arguments.Count == 1)
+			{
+				string resolvedString = ResolveAtom(arguments[0], dataRow, context, scopeRows);
+				if (atom.StartsWith("Len(", StringComparison.OrdinalIgnoreCase))
+				{
+					return resolvedString.Length.ToString(CultureInfo.CurrentCulture);
+				}
+				if (atom.StartsWith("Trim(", StringComparison.OrdinalIgnoreCase))
+				{
+					return resolvedString.Trim();
+				}
+				if (atom.StartsWith("UCase(", StringComparison.OrdinalIgnoreCase))
+				{
+					return resolvedString.ToUpper(CultureInfo.CurrentCulture);
+				}
+				return resolvedString.ToLower(CultureInfo.CurrentCulture);
 			}
 
 			return string.Empty;
