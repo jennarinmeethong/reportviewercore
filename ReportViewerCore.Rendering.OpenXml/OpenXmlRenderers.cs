@@ -77,6 +77,21 @@ internal sealed class OpenXmlRenderCanvas : IRenderCanvas
 		_texts.Add(new OpenXmlText(text, baseline, font, color, direction, null));
 	}
 
+	public void DrawTableCell(string text, RenderPoint baseline, RenderRect bounds, FontRequest font, RenderColor color, string? url = null, TextDirection direction = TextDirection.LeftToRight, int columnSpan = 1, int rowSpan = 1)
+	{
+		ThrowIfDisposed();
+		ArgumentNullException.ThrowIfNull(text);
+		if (url is not null)
+		{
+			RenderUrlPolicy.ValidateHyperlink(url);
+		}
+		if (columnSpan < 1 || rowSpan < 1)
+		{
+			throw new ArgumentOutOfRangeException(nameof(columnSpan), "Table cell spans must be positive.");
+		}
+		_texts.Add(new OpenXmlText(text, baseline, font, color, direction, url, bounds, columnSpan, rowSpan));
+	}
+
 	public void DrawHyperlink(string text, RenderPoint baseline, FontRequest font, RenderColor color, string url, TextDirection direction = TextDirection.LeftToRight)
 	{
 		ThrowIfDisposed();
@@ -128,9 +143,17 @@ internal sealed record OpenXmlText(
 	FontRequest Font,
 	RenderColor Color,
 	TextDirection Direction,
-	string? Url);
+	string? Url,
+	RenderRect? TableCellBounds = null,
+	int ColumnSpan = 1,
+	int RowSpan = 1);
 
-internal sealed record OpenXmlImage(RenderImage Image, RenderRect Destination);
+internal sealed record OpenXmlImage(RenderImage Image, RenderRect Destination, OpenXmlImageCrop? Crop = null);
+
+internal readonly record struct OpenXmlImageCrop(int Left, int Top, int Right, int Bottom)
+{
+	public bool IsEmpty => Left == 0 && Top == 0 && Right == 0 && Bottom == 0;
+}
 
 internal sealed record OpenXmlPage(
 	IReadOnlyList<OpenXmlText> Texts,
@@ -235,7 +258,7 @@ internal static class OpenXmlPackageWriter
 				{
 					string id = $"rId{hyperlinkId++}";
 					relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", id), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"), new XAttribute("Target", $"media/image{imageIndex}.png")));
-					body.Add(new XElement(Word + "p", WordDrawingParagraphProperties(image.Destination), WordImage(image, id, imageIndex)));
+					body.Add(new XElement(Word + "p", WordImage(image, id, imageIndex)));
 					WriteBinaryEntry(archive, $"word/media/image{imageIndex}.png", image.Image.PngData);
 					imageIndex++;
 				}
@@ -244,7 +267,7 @@ internal static class OpenXmlPackageWriter
 					string id = $"rId{hyperlinkId++}";
 					string chartPath = $"charts/chart{chartIndex}.xml";
 					relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", id), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart"), new XAttribute("Target", chartPath)));
-					body.Add(new XElement(Word + "p", WordDrawingParagraphProperties(chart.Destination), WordChart(chart, id, chartIndex)));
+					body.Add(new XElement(Word + "p", WordChart(chart, id, chartIndex)));
 					WriteEntry(archive, $"word/{chartPath}", ExcelChart(chart));
 					chartIndex++;
 				}
@@ -254,11 +277,11 @@ internal static class OpenXmlPackageWriter
 				}
 				if (pageIndex < pages.Count - 1)
 				{
-					body.Add(new XElement(Word + "p", new XElement(Word + "r", new XElement(Word + "br", new XAttribute(Word + "type", "page")))));
+					body.Add(new XElement(Word + "p", new XElement(Word + "pPr", WordSectionProperties(page.Size, true))));
 				}
 			}
-			OpenXmlPage firstPage = pages[0];
-			body.Add(new XElement(Word + "sectPr", new XElement(Word + "pgSz", new XAttribute(Word + "w", ToTwips(firstPage.Size.Width)), new XAttribute(Word + "h", ToTwips(firstPage.Size.Height)))));
+			OpenXmlPage lastPage = pages[^1];
+			body.Add(WordSectionProperties(lastPage.Size, false));
 			WriteEntry(archive, "word/document.xml", documentXml);
 			WriteEntry(archive, "word/_rels/document.xml.rels", relationships);
 		}
@@ -273,10 +296,134 @@ internal static class OpenXmlPackageWriter
 		{
 			using var canvas = new OpenXmlRenderCanvas(page.Size);
 			page.Render(canvas);
-				pages.Add(new OpenXmlPage(canvas.Texts, canvas.Images, canvas.Charts, canvas.Shapes, canvas.Size));
+			IReadOnlyList<OpenXmlImage> images = canvas.Images
+				.Select(image => ClipImageToPage(image, canvas.Size))
+				.OfType<OpenXmlImage>()
+				.ToArray();
+			IReadOnlyList<OpenXmlShape> shapes = canvas.Shapes
+				.Select(shape => ClipShapeToPage(shape, canvas.Size))
+				.OfType<OpenXmlShape>()
+				.ToArray();
+			pages.Add(new OpenXmlPage(canvas.Texts, images, canvas.Charts, shapes, canvas.Size));
 		}
 		return pages;
 	}
+
+	private static OpenXmlImage? ClipImageToPage(OpenXmlImage image, RenderSize pageSize)
+	{
+		RenderRect destination = image.Destination;
+		if (!float.IsFinite(destination.X) || !float.IsFinite(destination.Y) || !float.IsFinite(destination.Width) || !float.IsFinite(destination.Height) || destination.Width <= 0 || destination.Height <= 0)
+		{
+			return null;
+		}
+
+		float left = MathF.Max(0, destination.X);
+		float top = MathF.Max(0, destination.Y);
+		float right = MathF.Min(pageSize.Width, destination.Right);
+		float bottom = MathF.Min(pageSize.Height, destination.Bottom);
+		if (right <= left || bottom <= top)
+		{
+			return null;
+		}
+
+		var clipped = new RenderRect(left, top, right - left, bottom - top);
+		var crop = new OpenXmlImageCrop(
+			ToCropPercentage((left - destination.X) / destination.Width),
+			ToCropPercentage((top - destination.Y) / destination.Height),
+			ToCropPercentage((destination.Right - right) / destination.Width),
+			ToCropPercentage((destination.Bottom - bottom) / destination.Height));
+		return image with { Destination = clipped, Crop = crop.IsEmpty ? null : crop };
+	}
+
+	private static int ToCropPercentage(float value) => Math.Clamp((int)MathF.Round(value * 100000, MidpointRounding.AwayFromZero), 0, 100000);
+
+	private static OpenXmlShape? ClipShapeToPage(OpenXmlShape shape, RenderSize pageSize)
+	{
+		if (!IsFinite(shape.Bounds) || shape.Bounds.Width < 0 || shape.Bounds.Height < 0)
+		{
+			return null;
+		}
+
+		if (!shape.IsLine)
+		{
+			RenderRect bounds = Intersect(shape.Bounds, new RenderRect(0, 0, pageSize.Width, pageSize.Height));
+			return bounds.Width <= 0 || bounds.Height <= 0 ? null : shape with { Bounds = bounds };
+		}
+
+		if (shape.Start is not RenderPoint start || shape.End is not RenderPoint end || !IsFinite(start) || !IsFinite(end) || !ClipLine(start, end, pageSize, out RenderPoint clippedStart, out RenderPoint clippedEnd))
+		{
+			return null;
+		}
+
+		var clippedBounds = new RenderRect(
+			MathF.Min(clippedStart.X, clippedEnd.X),
+			MathF.Min(clippedStart.Y, clippedEnd.Y),
+			MathF.Abs(clippedEnd.X - clippedStart.X),
+			MathF.Abs(clippedEnd.Y - clippedStart.Y));
+		return shape with { Bounds = clippedBounds, Start = clippedStart, End = clippedEnd };
+	}
+
+	private static RenderRect Intersect(RenderRect first, RenderRect second)
+	{
+		float left = MathF.Max(first.X, second.X);
+		float top = MathF.Max(first.Y, second.Y);
+		float right = MathF.Min(first.Right, second.Right);
+		float bottom = MathF.Min(first.Bottom, second.Bottom);
+		return new RenderRect(left, top, MathF.Max(0, right - left), MathF.Max(0, bottom - top));
+	}
+
+	private static bool ClipLine(RenderPoint start, RenderPoint end, RenderSize pageSize, out RenderPoint clippedStart, out RenderPoint clippedEnd)
+	{
+		float deltaX = end.X - start.X;
+		float deltaY = end.Y - start.Y;
+		float first = 0;
+		float last = 1;
+		if (!UpdateLineClip(-deltaX, start.X, ref first, ref last) ||
+			!UpdateLineClip(deltaX, pageSize.Width - start.X, ref first, ref last) ||
+			!UpdateLineClip(-deltaY, start.Y, ref first, ref last) ||
+			!UpdateLineClip(deltaY, pageSize.Height - start.Y, ref first, ref last))
+		{
+			clippedStart = default;
+			clippedEnd = default;
+			return false;
+		}
+
+		clippedStart = new RenderPoint(start.X + first * deltaX, start.Y + first * deltaY);
+		clippedEnd = new RenderPoint(start.X + last * deltaX, start.Y + last * deltaY);
+		return true;
+	}
+
+	private static bool UpdateLineClip(float coefficient, float constant, ref float first, ref float last)
+	{
+		if (MathF.Abs(coefficient) < float.Epsilon)
+		{
+			return constant >= 0;
+		}
+
+		float ratio = constant / coefficient;
+		if (coefficient < 0)
+		{
+			if (ratio > last)
+			{
+				return false;
+			}
+			first = MathF.Max(first, ratio);
+		}
+		else
+		{
+			if (ratio < first)
+			{
+				return false;
+			}
+			last = MathF.Min(last, ratio);
+		}
+
+		return true;
+	}
+
+	private static bool IsFinite(RenderRect rectangle) => float.IsFinite(rectangle.X) && float.IsFinite(rectangle.Y) && float.IsFinite(rectangle.Width) && float.IsFinite(rectangle.Height);
+
+	private static bool IsFinite(RenderPoint point) => float.IsFinite(point.X) && float.IsFinite(point.Y);
 
 	private static XElement ExcelWorkbook(int pageCount) => new(Spreadsheet + "workbook", new XAttribute(XNamespace.Xmlns + "r", OfficeDocument), new XElement(Spreadsheet + "sheets", Enumerable.Range(1, pageCount).Select(i => new XElement(Spreadsheet + "sheet", new XAttribute("name", $"Page {i}"), new XAttribute("sheetId", i), new XAttribute(OfficeDocument + "id", $"rId{i}")))));
 
@@ -284,9 +431,14 @@ internal static class OpenXmlPackageWriter
 	{
 		IReadOnlyList<(int Row, int Column, OpenXmlText Text)> cells = ExcelCells(page);
 		var sheetData = new XElement(Spreadsheet + "sheetData", cells.GroupBy(cell => cell.Row).OrderBy(pair => pair.Key).Select(pair => new XElement(Spreadsheet + "row", new XAttribute("r", pair.Key), pair.Select(cell => ExcelCell(cell.Column, pair.Key, cell.Text)))));
-		int maxRow = cells.Count == 0 ? 1 : cells.Max(cell => cell.Row);
-		int maxColumn = cells.Count == 0 ? 1 : cells.Max(cell => cell.Column);
+		int maxRow = cells.Count == 0 ? 1 : cells.Max(cell => cell.Row + (cell.Text.TableCellBounds is not null ? cell.Text.RowSpan : 1) - 1);
+		int maxColumn = cells.Count == 0 ? 1 : cells.Max(cell => cell.Column + (cell.Text.TableCellBounds is not null ? cell.Text.ColumnSpan : 1) - 1);
 		var sheet = new XElement(Spreadsheet + "worksheet", new XAttribute(XNamespace.Xmlns + "r", OfficeDocument), new XElement(Spreadsheet + "dimension", new XAttribute("ref", $"A1:{ExcelColumn(maxColumn)}{maxRow}")), sheetData);
+		IReadOnlyList<string> mergedRanges = ExcelMergedRanges(cells);
+		if (mergedRanges.Count > 0)
+		{
+			sheet.Add(new XElement(Spreadsheet + "mergeCells", new XAttribute("count", mergedRanges.Count), mergedRanges.Select(reference => new XElement(Spreadsheet + "mergeCell", new XAttribute("ref", reference)))));
+		}
 		var hyperlinks = cells.Where(cell => cell.Text.Url is not null).Select((cell, index) => new XElement(Spreadsheet + "hyperlink", new XAttribute("ref", ExcelColumn(cell.Column) + cell.Row), new XAttribute(OfficeDocument + "id", $"rId{index + 1}"))).ToArray();
 		if (hyperlinks.Length > 0)
 		{
@@ -304,8 +456,11 @@ internal static class OpenXmlPackageWriter
 		var rows = new Dictionary<int, List<(int Column, OpenXmlText Text)>>();
 		foreach (OpenXmlText text in page.Texts)
 		{
-			int row = Math.Max(1, (int)MathF.Floor(text.Baseline.Y / 20) + 1);
-			int column = Math.Max(1, (int)MathF.Floor(text.Baseline.X / 64) + 1);
+			RenderPoint cellOrigin = text.TableCellBounds is RenderRect bounds
+				? new RenderPoint(bounds.X, bounds.Y)
+				: text.Baseline;
+			int row = Math.Max(1, (int)MathF.Floor(cellOrigin.Y / 20) + 1);
+			int column = Math.Max(1, (int)MathF.Floor(cellOrigin.X / 64) + 1);
 			if (!rows.TryGetValue(row, out List<(int Column, OpenXmlText Text)>? values))
 			{
 				values = new List<(int Column, OpenXmlText Text)>();
@@ -320,6 +475,15 @@ internal static class OpenXmlPackageWriter
 
 		return rows.OrderBy(pair => pair.Key)
 			.SelectMany(pair => pair.Value.Select(cell => (Row: pair.Key, Column: cell.Column, Text: cell.Text)))
+			.ToArray();
+	}
+
+	private static IReadOnlyList<string> ExcelMergedRanges(IReadOnlyList<(int Row, int Column, OpenXmlText Text)> cells)
+	{
+		return cells
+			.Where(cell => cell.Text.TableCellBounds is not null && (cell.Text.ColumnSpan > 1 || cell.Text.RowSpan > 1))
+			.Select(cell => $"{ExcelColumn(cell.Column)}{cell.Row}:{ExcelColumn(cell.Column + cell.Text.ColumnSpan - 1)}{cell.Row + cell.Text.RowSpan - 1}")
+			.Distinct(StringComparer.Ordinal)
 			.ToArray();
 	}
 
@@ -522,22 +686,30 @@ internal static class OpenXmlPackageWriter
 	{
 		return new XElement(SpreadsheetDrawing + "pic",
 			new XElement(SpreadsheetDrawing + "nvPicPr", new XElement(SpreadsheetDrawing + "cNvPr", new XAttribute("id", id), new XAttribute("name", $"Image {id}")), new XElement(SpreadsheetDrawing + "cNvPicPr")),
-			new XElement(SpreadsheetDrawing + "blipFill", new XElement(Drawing + "blip", new XAttribute(OfficeDocument + "embed", relationshipId)), new XElement(Drawing + "stretch", new XElement(Drawing + "fillRect"))),
+			ImageBlipFill(image, relationshipId),
 			new XElement(SpreadsheetDrawing + "spPr", new XElement(Drawing + "prstGeom", new XAttribute("prst", "rect"), new XElement(Drawing + "avLst"))));
+	}
+
+	private static XElement ImageBlipFill(OpenXmlImage image, string relationshipId)
+	{
+		return new XElement(Drawing + "blipFill",
+			new XElement(Drawing + "blip", new XAttribute(OfficeDocument + "embed", relationshipId)),
+			image.Crop is OpenXmlImageCrop crop ? new XElement(Drawing + "srcRect", CropAttribute("l", crop.Left), CropAttribute("t", crop.Top), CropAttribute("r", crop.Right), CropAttribute("b", crop.Bottom)) : null,
+			new XElement(Drawing + "stretch", new XElement(Drawing + "fillRect")));
 	}
 
 	private static XElement WordImage(OpenXmlImage image, string relationshipId, int id)
 	{
 		long cx = ToEmu(image.Destination.Width);
 		long cy = ToEmu(image.Destination.Height);
-		return new XElement(Word + "r", new XElement(Word + "drawing", new XElement(WordDrawing + "inline", new XAttribute("distT", 0), new XAttribute("distB", 0), new XAttribute("distL", 0), new XAttribute("distR", 0),
-			new XElement(WordDrawing + "extent", new XAttribute("cx", cx), new XAttribute("cy", cy)),
-			new XElement(WordDrawing + "docPr", new XAttribute("id", id), new XAttribute("name", $"Image {id}")),
-			new XElement(Drawing + "graphic", new XElement(Drawing + "graphicData", new XAttribute("uri", Picture.NamespaceName), new XElement(Picture + "pic",
-				new XElement(Picture + "nvPicPr", new XElement(Picture + "cNvPr", new XAttribute("id", id), new XAttribute("name", $"Image {id}")), new XElement(Picture + "cNvPicPr")),
-				new XElement(Picture + "blipFill", new XElement(Drawing + "blip", new XAttribute(OfficeDocument + "embed", relationshipId)), new XElement(Drawing + "stretch", new XElement(Drawing + "fillRect"))),
-				new XElement(Picture + "spPr", new XElement(Drawing + "xfrm", new XElement(Drawing + "off", new XAttribute("x", 0), new XAttribute("y", 0)), new XElement(Drawing + "ext", new XAttribute("cx", cx), new XAttribute("cy", cy))), new XElement(Drawing + "prstGeom", new XAttribute("prst", "rect"), new XElement(Drawing + "avLst")))))))));
+		XElement graphic = new XElement(Drawing + "graphic", new XElement(Drawing + "graphicData", new XAttribute("uri", Picture.NamespaceName), new XElement(Picture + "pic",
+			new XElement(Picture + "nvPicPr", new XElement(Picture + "cNvPr", new XAttribute("id", id), new XAttribute("name", $"Image {id}")), new XElement(Picture + "cNvPicPr")),
+			ImageBlipFill(image, relationshipId),
+			new XElement(Picture + "spPr", new XElement(Drawing + "xfrm", new XElement(Drawing + "off", new XAttribute("x", 0), new XAttribute("y", 0)), new XElement(Drawing + "ext", new XAttribute("cx", cx), new XAttribute("cy", cy))), new XElement(Drawing + "prstGeom", new XAttribute("prst", "rect"), new XElement(Drawing + "avLst"))))));
+		return new XElement(Word + "r", new XElement(Word + "drawing", WordFloatingAnchor(image.Destination, id, $"Image {id}", graphic)));
 	}
+
+	private static XAttribute? CropAttribute(string name, int value) => value == 0 ? null : new XAttribute(name, value);
 
 	private static XElement WordShape(OpenXmlShape shape, int id)
 	{
@@ -566,21 +738,50 @@ internal static class OpenXmlPackageWriter
 	{
 		long cx = ToEmu(chart.Destination.Width);
 		long cy = ToEmu(chart.Destination.Height);
-		return new XElement(Word + "r", new XElement(Word + "drawing", new XElement(WordDrawing + "inline", new XAttribute("distT", 0), new XAttribute("distB", 0), new XAttribute("distL", 0), new XAttribute("distR", 0),
+		XElement graphic = new XElement(Drawing + "graphic", new XElement(Drawing + "graphicData", new XAttribute("uri", Chart.NamespaceName), new XElement(Chart + "chart", new XAttribute(OfficeDocument + "id", relationshipId))));
+		return new XElement(Word + "r", new XElement(Word + "drawing", WordFloatingAnchor(chart.Destination, 200 + id, $"Chart {id}", graphic)));
+	}
+
+	private static XElement WordFloatingAnchor(RenderRect destination, int id, string name, XElement graphic)
+	{
+		long cx = ToEmu(destination.Width);
+		long cy = ToEmu(destination.Height);
+		return new XElement(WordDrawing + "anchor",
+			new XAttribute("distT", 0),
+			new XAttribute("distB", 0),
+			new XAttribute("distL", 0),
+			new XAttribute("distR", 0),
+			new XAttribute("simplePos", 0),
+			new XAttribute("relativeHeight", 0),
+			new XAttribute("behindDoc", 0),
+			new XAttribute("locked", 0),
+			new XAttribute("layoutInCell", 1),
+			new XAttribute("allowOverlap", 1),
+			new XElement(WordDrawing + "simplePos", new XAttribute("x", 0), new XAttribute("y", 0)),
+			new XElement(WordDrawing + "positionH", new XAttribute("relativeFrom", "page"), new XElement(WordDrawing + "posOffset", ToEmuOffset(destination.X))),
+			new XElement(WordDrawing + "positionV", new XAttribute("relativeFrom", "page"), new XElement(WordDrawing + "posOffset", ToEmuOffset(destination.Y))),
 			new XElement(WordDrawing + "extent", new XAttribute("cx", cx), new XAttribute("cy", cy)),
-			new XElement(WordDrawing + "docPr", new XAttribute("id", 200 + id), new XAttribute("name", $"Chart {id}")),
-			new XElement(Drawing + "graphic", new XElement(Drawing + "graphicData", new XAttribute("uri", Chart.NamespaceName), new XElement(Chart + "chart", new XAttribute(OfficeDocument + "id", relationshipId)))))));
+			new XElement(WordDrawing + "effectExtent", new XAttribute("l", 0), new XAttribute("t", 0), new XAttribute("r", 0), new XAttribute("b", 0)),
+			new XElement(WordDrawing + "wrapNone"),
+			new XElement(WordDrawing + "docPr", new XAttribute("id", id), new XAttribute("name", name)),
+			new XElement(WordDrawing + "cNvGraphicFramePr", new XElement(Drawing + "graphicFrameLocks", new XAttribute("noChangeAspect", 1))),
+			graphic);
+	}
+
+	private static XElement WordSectionProperties(RenderSize size, bool nextPage)
+	{
+		return new XElement(Word + "sectPr",
+			nextPage ? new XElement(Word + "type", new XAttribute(Word + "val", "nextPage")) : null,
+			new XElement(Word + "pgSz", new XAttribute(Word + "w", ToTwips(size.Width)), new XAttribute(Word + "h", ToTwips(size.Height))));
 	}
 
 	private static long ToEmu(float points) => Math.Max(1, (long)Math.Round(points * 12700, MidpointRounding.AwayFromZero));
 
+	private static long ToEmuOffset(float points) => Math.Max(0, (long)Math.Round(points * 12700, MidpointRounding.AwayFromZero));
+
 	private static long ToTwips(float points) => Math.Max(0, (long)Math.Round(points * 20, MidpointRounding.AwayFromZero));
 
 	private static long ToHalfPoints(float points) => Math.Max(1, (long)Math.Round(points * 2, MidpointRounding.AwayFromZero));
-
-	private static XElement? WordDrawingParagraphProperties(RenderRect destination) => destination.X > 0
-		? new XElement(Word + "pPr", new XElement(Word + "ind", new XAttribute(Word + "left", ToTwips(destination.X))))
-		: null;
 
 	private static XElement? WordParagraphProperties(OpenXmlText text)
 	{

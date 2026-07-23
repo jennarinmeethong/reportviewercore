@@ -7,7 +7,7 @@
         <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>Unsupported page break</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
         <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>=Fields!Name.Value</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
       </TablixRows></TablixBody>
-      <TablixRowHierarchy><TablixMembers><TablixMember><KeepWithGroup>After</KeepWithGroup></TablixMember><TablixMember><Group Name="CategoryGroup"><GroupExpressions><GroupExpression>=Fields!Category.Value</GroupExpression></GroupExpressions><PageBreak><BreakLocation>Start</BreakLocation></PageBreak></Group></TablixMember></TablixMembers></TablixRowHierarchy>
+      <TablixRowHierarchy><TablixMembers><TablixMember><KeepWithGroup>After</KeepWithGroup></TablixMember><TablixMember><Group Name="CategoryGroup"><GroupExpressions><GroupExpression>=Fields!Category.Value</GroupExpression></GroupExpressions><PageBreak><BreakLocation>Before</BreakLocation></PageBreak></Group></TablixMember></TablixMembers></TablixRowHierarchy>
       <DataSetName>Items</DataSetName>
     </Tablix></ReportItems></Body>
     <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>

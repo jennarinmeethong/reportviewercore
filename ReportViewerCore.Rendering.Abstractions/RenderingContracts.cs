@@ -36,6 +36,18 @@ public interface IRenderCanvas : IDisposable
 
 	void DrawText(string text, RenderPoint baseline, FontRequest font, RenderColor color, TextDirection direction = TextDirection.LeftToRight);
 
+	void DrawTableCell(string text, RenderPoint baseline, RenderRect bounds, FontRequest font, RenderColor color, string? url = null, TextDirection direction = TextDirection.LeftToRight, int columnSpan = 1, int rowSpan = 1)
+	{
+		if (url is null)
+		{
+			DrawText(text, baseline, font, color, direction);
+		}
+		else
+		{
+			DrawHyperlink(text, baseline, font, color, url, direction);
+		}
+	}
+
 	void DrawHyperlink(string text, RenderPoint baseline, FontRequest font, RenderColor color, string url, TextDirection direction = TextDirection.LeftToRight);
 
 	void DrawImage(RenderImage image, RenderRect destination);

@@ -11,7 +11,8 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] Constrained RDLC engine: tablixes, sorting, multi-level group scopes, headers/footers, subtotals, images, charts, hyperlinks, nested items, subreports, parameters, expressions, and pagination.
 - [x] `IReportPageSource`/`ReportPageSourceAdapter` seam for legacy RPL/SPB pagination.
 - [x] Windows display adapter and opt-in legacy `RenderPortable` bridges.
-- [x] 105 regression tests, 51 content-complete RDLC fixtures, RID publish workflow, seven `2.0.0-preview.1` packages, samples, and migration docs.
+- [x] 117 regression tests, 56 content-complete RDLC fixtures, RID publish workflow, seven `2.0.0-preview.1` packages, samples, and migration docs.
+- [x] Feature-showcase console project exports every portable file type plus a manifest covering all positive canvas features, including the latest pagination, table-span, image-crop, and vector-clipping work.
 - [x] Preserve basic charts, rectangles, and lines placed inside tablix cells with cell-column and repeated-row offsets.
 - [x] Preserve bar/column/line/area/pie/doughnut chart semantics through the shared fixture and native backend output parts; unsupported Radar remains an explicit negative case.
 
@@ -32,16 +33,17 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] Support constrained three-or-more-level row-group prefix headers/scopes using matching row templates.
 - [x] Traverse nested `TablixMember` group expressions in document order for constrained scopes.
 - [x] Honor constrained grouped `PageBreak` metadata only when the configured member-scope prefix changes.
-- [ ] Support arbitrary nested `TablixMember` trees, recursive headers, subtotals, totals, and page breaks.
-- [x] Support terminal sibling row-group branches and nested dynamic branch trees, including single-root nested sibling trees, with independent group/detail sections, optional static headers, explicit static wrapper members with recursive dynamic → static → dynamic children, child `End` boundaries before wrapper subtotals, and nested child `StartAndEnd` breaks, scoped leading/trailing static child rows, explicit root-level interstitial static members, an optional root-level trailing total row, and branch-specific `Between`/`Start`/`End`/`StartAndEnd` page breaks; other static layouts, footers, and break locations remain deferred.
-- [x] Reject branching row-member trees and unsupported grouped page-break locations explicitly until the page model can represent their layout semantics.
+- [x] Support shape-matched recursive `TablixMember` trees with static wrappers, multiple nested dynamic children, scoped leading/trailing rows, recursive headers/details, subtotals, totals, and supported page breaks.
+- [ ] Support unrestricted arbitrary nested `TablixMember` row layouts without a deterministic row-template shape contract; ambiguous layouts remain explicitly constrained.
+- [x] Support terminal sibling row-group branches and nested dynamic branch trees, including single-root nested sibling trees, with independent group/detail sections, optional static headers, explicit static wrapper members with recursive dynamic → static → dynamic children, child `End` boundaries before wrapper subtotals, and nested child `StartAndEnd` breaks, scoped leading/trailing static child rows, explicit root-level interstitial static members, an optional root-level trailing total row, and branch-specific `Between`/`Start`/`End`/`StartAndEnd` page breaks; linear dynamic members with static leaf children repeat the first leaf as detail and emit later leaves as scoped footers; other static layouts and break locations remain deferred.
+- [x] Reject branching row-member trees and unsupported grouped page-break locations explicitly; linear nested groups support `Between`, `Start`, `End`, and `StartAndEnd` while other member layouts remain constrained.
 - [x] Add scoped `First`, `Last`, and `Count` aggregates through the allow-listed expression host.
 - [x] Add allow-listed conditional visibility for standalone report items and tablix-cell text/images.
 - [x] Add a regression proving unsupported `Code.*` expressions remain inert and do not execute arbitrary report code.
 - [x] Add allow-listed `IsNothing` null checks plus boolean `Not`/`And`/`Or` composition without enabling arbitrary report code.
 - [x] Add prefix-scoped nested `Sum` across constrained row-group levels.
 - [x] Define static output policy for `ToggleItem`: honor the initial `Hidden` state.
-- [ ] Define toggle behavior for interactive renderers.
+- [x] Define toggle behavior for interactive renderers: current renderers are draw-only, so they honor initial `Hidden` state and defer expand/collapse metadata until an interactive contract exists.
 - [ ] Expand the allow-listed expression host only through tests and security review; never execute arbitrary report code.
 - [x] Add grouped empty-data and null-key fixtures with scoped aggregate assertions, culture-specific decimal-comma sorting, allow-listed multi-value `Join`, and multi-value default coverage.
 
@@ -51,8 +53,13 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] Explicitly reject unsupported map/vector-style report items with clear constrained-engine errors; full map/vector contracts remain future work.
 - [ ] Improve OpenXML layout, merged cells, styles, pagination, floating shapes, and hyperlink/image fidelity.
 - [x] Preserve OpenXML text family/size/weight/style/color, whitespace, hyperlink cell references, worksheet dimensions, document page sizes, and horizontal text/image/chart offsets.
-- [ ] Add merged-cell/table layout, true pagination, floating anchors, and broader hyperlink/image fidelity.
-- [ ] Validate font fallback and embedded-font policy for Latin, Thai, Arabic, CJK, RTL, and vertical text.
+- [x] Propagate constrained RDLC tablix `ColSpan`/`RowSpan` metadata through the shared canvas and emit bounded SpreadsheetML merged ranges with matching worksheet dimensions.
+- [x] Emit page-relative DOCX floating anchors with preserved image/chart positions and extents.
+- [x] Preserve backend-neutral page boundaries as DOCX `nextPage` sections with per-page sizes and XLSX worksheets.
+- [x] Clip OpenXML images that cross page boundaries, preserving visible anchors and source crop metadata in DOCX/XLSX.
+- [x] Clip OpenXML vector rectangles and lines that cross page boundaries, preserving visible bounds and line endpoints in DOCX/XLSX.
+- [ ] Add clipping for text and chart objects across page boundaries plus broader hyperlink/image fidelity.
+- [x] Validate platform font fallback and caller-owned registered-font policy for Latin, Thai, Arabic, CJK, RTL, and vertical text; unknown families fail closed, and OpenXML references font families without silently embedding or substituting font bytes.
 - [x] Define explicit registered-font failure behavior; missing caller-supplied font files fail before rendering, while platform fallback remains runtime/RID-specific.
 
 ### 4. Windows compatibility
@@ -71,7 +78,8 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] Verify the six portable packages have no Windows desktop/System.Drawing dependency; keep that dependency isolated to `ReportViewerCore.Rendering.Windows`.
 - [x] Independently inspect all seven release symbol archives with a Portable PDB reader: each reports `SourceLink=true` and three `EmbeddedSource` records; the projects enable `PublishRepositoryUrl` and `EmbedUntrackedSources`.
 - [x] Review local security boundaries, API compatibility notes, changelog, migration guide, and preview release notes; keep unsupported report code and Windows-only behavior explicit.
-- [ ] Resolve the known `System.Security.Cryptography.Xml` NU1903 dependency advisories (transitive through `System.ServiceModel.Primitives` from the legacy `System.ServiceModel.Http` line) and complete licensing/legal review before stable release.
+- [x] Pin the legacy compatibility packages to `System.Security.Cryptography.Xml` `10.0.10` in project and nuspec dependencies; this removes the known NU1903 advisory without changing the v1 rendering/API path.
+- [ ] Complete licensing/legal review before stable release.
 
 ## Next-session start
 

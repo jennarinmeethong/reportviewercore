@@ -12,6 +12,7 @@ Every RDLC in `engine/` is copied into the test output and validated as non-empt
 
 | Fixture | Coverage |
 | --- | --- |
+| `merged-cell-table.rdlc` | Tablix ColSpan propagation into an OpenXML merged-cell range |
 | `simple.rdlc` | Basic field binding and single-page HTML rendering |
 | `image.rdlc`, `image-expression.rdlc`, `tablix-image.rdlc` | Embedded, resolved, and tablix-cell images |
 | `chart.rdlc`, `column-chart.rdlc` | Bar, column, line, area, pie, doughnut, and unsupported-chart regression inputs |
@@ -28,7 +29,9 @@ Every RDLC in `engine/` is copied into the test output and validated as non-empt
 | `sibling-group-branches.rdlc`, `sibling-group-no-header.rdlc`, `sibling-group-start-pagebreak.rdlc`, `sibling-group-start-end-pagebreak.rdlc`, `nested-sibling-group-branches.rdlc`, `nested-sibling-child-end-pagebreak.rdlc`, `nested-sibling-single-root.rdlc`, `nested-sibling-single-root-no-header.rdlc` | Terminal and nested sibling row-group branches rendered as independent group/detail sections with optional static header, recursive dynamic/static child ordering, single-root nested branches, leading/trailing static child, root interstitial static member, and branch page-break coverage |
 | `no-rows-message.rdlc` | Empty tablix `NoRowsMessage` rendering |
 | `scoped-aggregates.rdlc` | `First`, `Last`, `Count`, `Min`, and `Max` over the materialized scope |
-| `grouped-pagebreak.rdlc`, `nested-group-pagebreak.rdlc` | Supported grouped `Between` page breaks at outer and nested scopes |
+| `grouped-pagebreak.rdlc`, `nested-group-pagebreak.rdlc`, `nested-group-start-end-pagebreak.rdlc` | Supported grouped `Between` and nested linear `StartAndEnd` page breaks at their configured scopes |
+| `nested-group-static-detail-subtotal.rdlc` | Nested dynamic groups with repeated static detail rows and scoped static subtotals |
+| `nested-static-wrapper-single-child.rdlc`, `nested-static-wrapper-multiple-children.rdlc` | Single-child and multi-child static wrappers around nested groups with root-level totals and scoped leading/trailing rows |
 | `unsupported-expression.rdlc`, `unsupported-map.rdlc`, `unsupported-chart.rdlc` | Explicit security and unsupported-feature rejection cases |
 | `unsupported-group-branch.rdlc`, `unsupported-pagebreak.rdlc`, `unsupported-tablix-subreport.rdlc`, `unsupported-nested-subreport.rdlc` | Explicit rejection of branching members, unsupported break locations, and unsupported nested subreports |
 

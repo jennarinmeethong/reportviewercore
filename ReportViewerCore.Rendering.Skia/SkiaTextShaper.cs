@@ -69,7 +69,7 @@ public sealed class SkiaTextShaper : ITextShaper
 		ushort[] glyphIds = new ushort[text.Length];
 		font.Font.GetGlyphs(text, glyphIds);
 		float advance = paint.MeasureText(text);
-		if (direction is TextDirection.RightToLeft or TextDirection.BottomToTop)
+		if (direction == TextDirection.BottomToTop)
 		{
 			Array.Reverse(glyphIds);
 		}
@@ -85,8 +85,12 @@ public sealed class SkiaTextShaper : ITextShaper
 		}
 
 		var glyphs = glyphIds
-			.Select((glyph, index) => new ShapedGlyph(glyph, index, 0, 0, 0, 0))
+			.Select((glyph, index) => new ShapedGlyph(glyph, index, paint.MeasureText(text[index].ToString()), 0, 0, 0))
 			.ToArray();
+		if (direction == TextDirection.RightToLeft)
+		{
+			Array.Reverse(glyphs);
+		}
 		return new ShapedText(glyphs, advance, 0);
 	}
 

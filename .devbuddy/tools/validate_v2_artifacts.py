@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Validate the local v2 NuGet archives and cross-platform smoke outputs."""
+"""Validate the local v2 NuGet archives, smoke outputs, and feature showcase."""
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import zipfile
 import xml.etree.ElementTree as ET
@@ -97,6 +98,62 @@ def validate_smoke(directory: Path) -> None:
     print(f"validated smoke artifacts: {len(files)} files")
 
 
+def validate_showcase(directory: Path) -> None:
+    expected = {
+        "feature-showcase-page-1.png",
+        "feature-showcase-page-2.png",
+        "feature-showcase.pdf",
+        "feature-showcase.html",
+        "feature-showcase.xlsx",
+        "feature-showcase.docx",
+        "feature-showcase-manifest.json",
+    }
+    files = {path.name for path in directory.iterdir() if path.is_file()}
+    if files != expected:
+        fail(f"feature showcase files differ; missing={sorted(expected - files)}, extra={sorted(files - expected)}")
+
+    try:
+        manifest = json.loads((directory / "feature-showcase-manifest.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        fail(f"feature showcase manifest is invalid: {error}")
+
+    if set(manifest.get("Files", [])) != expected:
+        fail("feature showcase manifest does not enumerate the exact output files")
+    if set(manifest.get("OutputFormats", [])) != {"png", "pdf", "html", "xlsx", "docx"}:
+        fail("feature showcase manifest does not enumerate every portable output format")
+    features = " ".join(manifest.get("Features", []))
+    for marker in ("Text", "hyperlink", "PNG", "ColSpan", "RowSpan", "Bar", "doughnut", "page sizes"):
+        if marker.lower() not in features.lower():
+            fail(f"feature showcase manifest is missing feature marker: {marker}")
+
+    for name in ("feature-showcase-page-1.png", "feature-showcase-page-2.png"):
+        if (directory / name).read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
+            fail(f"feature showcase PNG is invalid: {name}")
+    if (directory / "feature-showcase.pdf").read_bytes()[:5] != b"%PDF-":
+        fail("feature showcase PDF is invalid")
+
+    html = (directory / "feature-showcase.html").read_text(encoding="utf-8")
+    if "<svg" not in html or "Doughnut" not in html:
+        fail("feature showcase HTML is missing SVG/chart content")
+
+    for name, required in (
+        ("feature-showcase.xlsx", ("xl/workbook.xml", "xl/drawings/drawing1.xml")),
+        ("feature-showcase.docx", ("word/document.xml",)),
+    ):
+        path = directory / name
+        try:
+            with zipfile.ZipFile(path) as archive:
+                if archive.testzip() is not None:
+                    fail(f"feature showcase archive is corrupt: {name}")
+                missing = [entry for entry in required if entry not in archive.namelist()]
+                if missing:
+                    fail(f"feature showcase archive {name} is missing: {', '.join(missing)}")
+        except zipfile.BadZipFile as error:
+            fail(f"feature showcase archive is not valid: {name}: {error}")
+
+    print(f"validated feature showcase: {len(files)} files and {len(manifest.get('Features', []))} feature markers")
+
+
 def validate_test_results(path: Path) -> None:
     if not path.is_file():
         fail(f"test result file does not exist: {path}")
@@ -160,18 +217,21 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--packages", type=Path)
     parser.add_argument("--smoke", type=Path)
+    parser.add_argument("--showcase", type=Path)
     parser.add_argument("--test-results", type=Path)
     parser.add_argument("--fixtures", type=Path)
     parser.add_argument("--fixture-output", type=Path)
     arguments = parser.parse_args()
     if arguments.fixture_output is not None and arguments.fixtures is None:
         parser.error("--fixture-output requires --fixtures")
-    if arguments.packages is None and arguments.smoke is None and arguments.test_results is None and arguments.fixtures is None:
-        parser.error("provide --packages, --smoke, --test-results, and/or --fixtures")
+    if arguments.packages is None and arguments.smoke is None and arguments.showcase is None and arguments.test_results is None and arguments.fixtures is None:
+        parser.error("provide --packages, --smoke, --showcase, --test-results, and/or --fixtures")
     if arguments.packages is not None:
         validate_packages(arguments.packages)
     if arguments.smoke is not None:
         validate_smoke(arguments.smoke)
+    if arguments.showcase is not None:
+        validate_showcase(arguments.showcase)
     if arguments.test_results is not None:
         validate_test_results(arguments.test_results)
     if arguments.fixtures is not None:

@@ -52,12 +52,28 @@ jobs:
         if: matrix.execute == true
         run: dotnet ReportViewerCore.Sample.CrossPlatform/bin/Release/net10.0/${{ matrix.rid }}/publish/ReportViewerCore.Sample.CrossPlatform.dll ./artifacts/ci-smoke
 
+      - name: Restore feature showcase
+        run: dotnet restore ReportViewerCore.Sample.FeatureShowcase/ReportViewerCore.Sample.FeatureShowcase.csproj --runtime ${{ matrix.rid }} --nologo
+
+      - name: Publish feature showcase
+        run: dotnet publish ReportViewerCore.Sample.FeatureShowcase/ReportViewerCore.Sample.FeatureShowcase.csproj --no-restore --configuration Release --runtime ${{ matrix.rid }} --self-contained false --nologo -m:1 -p:UseSharedCompilation=false
+
+      - name: Export feature showcase
+        if: matrix.execute == true
+        run: dotnet ReportViewerCore.Sample.FeatureShowcase/bin/Release/net10.0/${{ matrix.rid }}/publish/ReportViewerCore.Sample.FeatureShowcase.dll ./artifacts/feature-showcase
+
+      - name: Validate feature showcase
+        if: matrix.execute == true
+        run: python .devbuddy/tools/validate_v2_artifacts.py --showcase artifacts/feature-showcase
+
       - name: Upload smoke artifacts
         if: always() && matrix.execute == true
         uses: actions/upload-artifact@v4
         with:
           name: reportviewer-${{ matrix.rid }}
-          path: artifacts/ci-smoke
+          path: |
+            artifacts/ci-smoke
+            artifacts/feature-showcase
           if-no-files-found: error
 
   windows-adapter:

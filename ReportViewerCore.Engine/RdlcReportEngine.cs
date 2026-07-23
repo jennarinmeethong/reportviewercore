@@ -195,13 +195,14 @@ public sealed class RdlcReportEngine
 						? rowTemplates[^1]
 						: rowTemplates.FirstOrDefault(row => row != headerTemplate) ?? rowTemplates[0];
 				XElement? groupFooterTemplate = hasGroupFooter ? rowTemplates[^1] : null;
-				IReadOnlySet<int> groupPageBreakLevels = ReadGroupPageBreakLevels(tablix, ns);
+				GroupPageBreakLevels groupPageBreakLevels = ReadGroupPageBreakLevels(tablix, ns);
 				var renderedGroupPrefixes = new HashSet<GroupPrefixKey>(GroupPrefixKeyComparer.Instance);
 				GroupScope? previousGroupScope = null;
 				foreach (GroupScope groupScope in GroupRows(tablix, ns, rows, context))
 				{
 					IReadOnlyList<object?> scopeRows = groupScope.Rows;
-					if (previousGroupScope is not null && scopeRows.Count > 0 && groupPageBreakLevels.Any(level => !groupScope.Keys.Take(level + 1).SequenceEqual(previousGroupScope.Keys.Take(level + 1), StringComparer.CurrentCulture)))
+					if (scopeRows.Count > 0 && (groupPageBreakLevels.StartLevels.Any(level => !HasSameGroupPrefix(groupScope, previousGroupScope, level))
+						|| previousGroupScope is not null && groupPageBreakLevels.BoundaryLevels.Any(level => !HasSameGroupPrefix(groupScope, previousGroupScope, level))))
 					{
 						contentTop = MoveToNextPageTop(top, contentTop, pageSize.Height);
 					}
@@ -410,7 +411,8 @@ public sealed class RdlcReportEngine
 				.Where(placement => Math.Max(0, (int)MathF.Floor(placement.Baseline.Y / pageSize.Height)) == currentPage)
 				.Select(placement => placement with
 				{
-					Baseline = placement.Baseline with { Y = placement.Baseline.Y - currentPage * pageSize.Height }
+					Baseline = placement.Baseline with { Y = placement.Baseline.Y - currentPage * pageSize.Height },
+					TableCellBounds = placement.TableCellBounds is RenderRect bounds ? bounds with { Y = bounds.Y - currentPage * pageSize.Height } : null
 				})
 				.Concat(repeatingTexts)
 				.ToArray();
@@ -457,7 +459,11 @@ public sealed class RdlcReportEngine
 				}
 				foreach (PlacedText placement in pagePlacements)
 				{
-					if (placement.Hyperlink is string hyperlink)
+					if (placement.TableCellBounds is RenderRect tableCellBounds)
+					{
+						canvas.DrawTableCell(placement.Text, placement.Baseline, tableCellBounds, placement.Font, placement.Color, placement.Hyperlink, placement.Direction, placement.ColumnSpan, placement.RowSpan);
+					}
+					else if (placement.Hyperlink is string hyperlink)
 					{
 						canvas.DrawHyperlink(placement.Text, placement.Baseline, placement.Font, placement.Color, hyperlink, placement.Direction);
 					}
@@ -491,19 +497,30 @@ public sealed class RdlcReportEngine
 	{
 		float x = 0;
 		float height = ReadRowHeight(row, ns);
-		foreach ((XElement cell, int index) in row.Element(ns + "TablixCells")?.Elements(ns + "TablixCell").Select((cell, index) => (cell, index)) ?? Enumerable.Empty<(XElement, int)>())
+		int columnIndex = 0;
+		foreach (XElement cell in row.Element(ns + "TablixCells")?.Elements(ns + "TablixCell") ?? Enumerable.Empty<XElement>())
 		{
 			if (cell.Descendants(ns + "Subreport").Any())
 			{
 				throw new NotSupportedException("The constrained RDLC engine does not support subreports inside tablix cells.");
 			}
 
-			AddTablixCellItems(cell.Element(ns + "CellContents") ?? cell, ns, context, embeddedImages, placements, images, charts, shapes, dataRow, scopeRows, leftOffset + x, topOffset + rowTop, height);
-			x += index < columnWidths.Count ? columnWidths[index] : 100;
+			int columnSpan = int.TryParse(cell.Element(ns + "ColSpan")?.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedColumnSpan) && parsedColumnSpan > 0 ? parsedColumnSpan : 1;
+			int rowSpan = int.TryParse(cell.Element(ns + "RowSpan")?.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedRowSpan) && parsedRowSpan > 0 ? parsedRowSpan : 1;
+			float width = 0;
+			for (int spanIndex = 0; spanIndex < columnSpan; spanIndex++)
+			{
+				int widthIndex = columnIndex + spanIndex;
+				width += widthIndex < columnWidths.Count ? columnWidths[widthIndex] : 100;
+			}
+			RenderRect cellBounds = new(leftOffset + x, topOffset + rowTop, width, height * rowSpan);
+			AddTablixCellItems(cell.Element(ns + "CellContents") ?? cell, ns, context, embeddedImages, placements, images, charts, shapes, dataRow, scopeRows, leftOffset + x, topOffset + rowTop, height, cellBounds, columnSpan, rowSpan);
+			x += width;
+			columnIndex += columnSpan;
 		}
 	}
 
-	private static void AddTablixCellItems(XElement container, XNamespace ns, RdlcDataContext context, IReadOnlyDictionary<string, RenderImageRequest> embeddedImages, List<PlacedText> placements, List<PlacedImage> images, List<PlacedChart> charts, List<PlacedShape> shapes, object? dataRow, IReadOnlyList<object?> scopeRows, float parentLeft, float parentTop, float rowHeight)
+	private static void AddTablixCellItems(XElement container, XNamespace ns, RdlcDataContext context, IReadOnlyDictionary<string, RenderImageRequest> embeddedImages, List<PlacedText> placements, List<PlacedImage> images, List<PlacedChart> charts, List<PlacedShape> shapes, object? dataRow, IReadOnlyList<object?> scopeRows, float parentLeft, float parentTop, float rowHeight, RenderRect? tableCellBounds = null, int columnSpan = 1, int rowSpan = 1)
 	{
 		foreach (XElement item in container.Elements())
 		{
@@ -517,7 +534,8 @@ public sealed class RdlcReportEngine
 			switch (item.Name.LocalName)
 			{
 				case "Textbox":
-					placements.Add(CreateTextPlacement(item, ns, context, dataRow, new RenderPoint(parentLeft + ParseSize(item.Element(ns + "Left")?.Value, 4), parentTop + ParseSize(item.Element(ns + "Top")?.Value, rowHeight * 0.75f)), scopeRows));
+					PlacedText placement = CreateTextPlacement(item, ns, context, dataRow, new RenderPoint(parentLeft + ParseSize(item.Element(ns + "Left")?.Value, 4), parentTop + ParseSize(item.Element(ns + "Top")?.Value, rowHeight * 0.75f)), scopeRows);
+					placements.Add(tableCellBounds is RenderRect bounds ? placement with { TableCellBounds = bounds, ColumnSpan = columnSpan, RowSpan = rowSpan } : placement);
 					break;
 				case "Image":
 					images.Add(ReadImage(item, ns, context, embeddedImages, parentLeft, parentTop, dataRow));
@@ -527,7 +545,7 @@ public sealed class RdlcReportEngine
 					break;
 				case "Rectangle":
 					shapes.Add(ReadRectangle(item, ns, parentLeft, parentTop));
-					AddTablixCellItems(item.Element(ns + "ReportItems") ?? item, ns, context, embeddedImages, placements, images, charts, shapes, dataRow, scopeRows, left, top, rowHeight);
+					AddTablixCellItems(item.Element(ns + "ReportItems") ?? item, ns, context, embeddedImages, placements, images, charts, shapes, dataRow, scopeRows, left, top, rowHeight, tableCellBounds, columnSpan, rowSpan);
 					break;
 				case "Line":
 					shapes.Add(ReadLine(item, ns, parentLeft, parentTop));
@@ -537,7 +555,7 @@ public sealed class RdlcReportEngine
 				default:
 					if (item.Element(ns + "ReportItems") is XElement children)
 					{
-						AddTablixCellItems(children, ns, context, embeddedImages, placements, images, charts, shapes, dataRow, scopeRows, parentLeft, parentTop, rowHeight);
+					AddTablixCellItems(children, ns, context, embeddedImages, placements, images, charts, shapes, dataRow, scopeRows, parentLeft, parentTop, rowHeight, tableCellBounds, columnSpan, rowSpan);
 					}
 					break;
 			}
@@ -546,20 +564,21 @@ public sealed class RdlcReportEngine
 
 	private static float ReadRowHeight(XElement row, XNamespace ns) => ParseSize(row.Element(ns + "Height")?.Value, 20);
 
-	private static IReadOnlySet<int> ReadGroupPageBreakLevels(XElement tablix, XNamespace ns)
+	private static GroupPageBreakLevels ReadGroupPageBreakLevels(XElement tablix, XNamespace ns)
 	{
-		var levels = new HashSet<int>();
+		var boundaryLevels = new HashSet<int>();
+		var startLevels = new HashSet<int>();
 		XElement? members = tablix.Element(ns + "TablixRowHierarchy")?.Element(ns + "TablixMembers");
 		int level = 0;
 		if (members is not null)
 		{
-			ReadGroupPageBreakLevels(members, ns, levels, ref level);
+			ReadGroupPageBreakLevels(members, ns, boundaryLevels, startLevels, ref level);
 		}
 
-		return levels;
+		return new GroupPageBreakLevels(boundaryLevels, startLevels);
 	}
 
-	private static void ReadGroupPageBreakLevels(XElement members, XNamespace ns, ISet<int> levels, ref int level)
+	private static void ReadGroupPageBreakLevels(XElement members, XNamespace ns, ISet<int> boundaryLevels, ISet<int> startLevels, ref int level)
 	{
 		foreach (XElement member in members.Elements(ns + "TablixMember"))
 		{
@@ -568,11 +587,17 @@ public sealed class RdlcReportEngine
 				.Count(expression => !string.IsNullOrWhiteSpace(expression.Value)) ?? 0;
 			if (expressionCount > 0)
 			{
-				bool breaksBetween = group?.Element(ns + "PageBreak")?.Element(ns + "BreakLocation") is XElement location
-					&& string.Equals(location.Value.Trim(), "Between", StringComparison.OrdinalIgnoreCase);
-				if (breaksBetween)
+				string breakLocation = group?.Element(ns + "PageBreak")?.Element(ns + "BreakLocation")?.Value.Trim() ?? string.Empty;
+				if (string.Equals(breakLocation, "Between", StringComparison.OrdinalIgnoreCase)
+					|| string.Equals(breakLocation, "End", StringComparison.OrdinalIgnoreCase)
+					|| string.Equals(breakLocation, "StartAndEnd", StringComparison.OrdinalIgnoreCase))
 				{
-					levels.Add(level + expressionCount - 1);
+					boundaryLevels.Add(level + expressionCount - 1);
+				}
+				if (string.Equals(breakLocation, "Start", StringComparison.OrdinalIgnoreCase)
+					|| string.Equals(breakLocation, "StartAndEnd", StringComparison.OrdinalIgnoreCase))
+				{
+					startLevels.Add(level + expressionCount - 1);
 				}
 
 				level += expressionCount;
@@ -581,7 +606,7 @@ public sealed class RdlcReportEngine
 			XElement? nestedMembers = member.Element(ns + "TablixMembers");
 			if (nestedMembers is not null)
 			{
-				ReadGroupPageBreakLevels(nestedMembers, ns, levels, ref level);
+				ReadGroupPageBreakLevels(nestedMembers, ns, boundaryLevels, startLevels, ref level);
 			}
 		}
 	}
@@ -594,12 +619,18 @@ public sealed class RdlcReportEngine
 			string value = location.Value.Trim();
 			if (!string.IsNullOrWhiteSpace(value)
 				&& !string.Equals(value, "None", StringComparison.OrdinalIgnoreCase)
-				&& !string.Equals(value, "Between", StringComparison.OrdinalIgnoreCase))
+				&& !string.Equals(value, "Between", StringComparison.OrdinalIgnoreCase)
+				&& !string.Equals(value, "Start", StringComparison.OrdinalIgnoreCase)
+				&& !string.Equals(value, "End", StringComparison.OrdinalIgnoreCase)
+				&& !string.Equals(value, "StartAndEnd", StringComparison.OrdinalIgnoreCase))
 			{
-				throw new NotSupportedException($"The constrained RDLC engine only supports grouped page breaks at 'Between', not '{value}'.");
+				throw new NotSupportedException($"The constrained RDLC engine only supports grouped page breaks at 'Between', 'Start', 'End', or 'StartAndEnd', not '{value}'.");
 			}
 		}
 	}
+
+	private static bool HasSameGroupPrefix(GroupScope current, GroupScope? previous, int level) => previous is not null
+		&& current.Keys.Take(level + 1).SequenceEqual(previous.Keys.Take(level + 1), StringComparer.CurrentCulture);
 
 	private static float MoveToNextPageTop(float topOffset, float contentTop, float pageHeight)
 	{
@@ -733,6 +764,42 @@ public sealed class RdlcReportEngine
 			return contentTop;
 		}
 
+		if (children.All(child => IsStaticLeafMember(child, ns)))
+		{
+			GroupScope? previousStaticChildGroup = null;
+			foreach (GroupScope groupScope in GroupRows(directGroupExpressions, scopeRows, context))
+			{
+				if (groupScope.Rows.Count == 0)
+				{
+					continue;
+				}
+				if (HasGroupBreakAtStart(member, ns) || (previousStaticChildGroup is not null && HasGroupBreakBeforeNext(member, ns)))
+				{
+					contentTop = MoveToNextPageTop(top, contentTop, pageSize.Height);
+				}
+
+				AddRow(placements, images, charts, shapes, groupHeader, ns, columnWidths, contentTop, groupScope.Rows[0], context, embeddedImages, groupScope.Rows, left, top);
+				contentTop += ReadRowHeight(groupHeader, ns);
+				XElement detailTemplate = rowTemplates[templateIndex + 1];
+				foreach (object? row in groupScope.Rows)
+				{
+					AddRow(placements, images, charts, shapes, detailTemplate, ns, columnWidths, contentTop, row, context, embeddedImages, groupScope.Rows, left, top);
+					contentTop += ReadRowHeight(detailTemplate, ns);
+				}
+
+				for (int footerIndex = 1; footerIndex < children.Length; footerIndex++)
+				{
+					XElement footerTemplate = rowTemplates[templateIndex + footerIndex + 1];
+					AddRow(placements, images, charts, shapes, footerTemplate, ns, columnWidths, contentTop, groupScope.Rows[^1], context, embeddedImages, groupScope.Rows, left, top);
+					contentTop += ReadRowHeight(footerTemplate, ns);
+				}
+
+				previousStaticChildGroup = groupScope;
+			}
+
+			return contentTop;
+		}
+
 		GroupScope? branchPreviousGroupScope = null;
 		foreach (GroupScope groupScope in GroupRows(directGroupExpressions, scopeRows, context))
 		{
@@ -764,6 +831,9 @@ public sealed class RdlcReportEngine
 		return contentTop;
 	}
 
+	private static bool IsStaticLeafMember(XElement member, XNamespace ns) => !ReadDirectGroupExpressions(member, ns).Any()
+		&& member.Element(ns + "TablixMembers")?.Elements(ns + "TablixMember").Any() != true;
+
 	private static IReadOnlyList<XElement> ReadSupportedSiblingGroupMembers(XElement tablix, XNamespace ns, IReadOnlyList<XElement> rowTemplates)
 	{
 		XElement? members = tablix.Element(ns + "TablixRowHierarchy")?.Element(ns + "TablixMembers");
@@ -771,12 +841,12 @@ public sealed class RdlcReportEngine
 		XElement[] groupedMembers = allMembers.Where(member => MemberContainsGroup(member, ns)).ToArray();
 		bool hasLeadingStaticMember = allMembers.Length > 0 && !MemberContainsGroup(allMembers[0], ns);
 		bool hasTrailingStaticMember = allMembers.Length > (hasLeadingStaticMember ? 1 : 0) && !MemberContainsGroup(allMembers[^1], ns);
-		bool hasNestedSiblingTree = groupedMembers.Length == 1 && HasSiblingMemberTree(groupedMembers[0], ns);
+		bool hasNestedMemberTree = groupedMembers.Length == 1 && HasNestedMemberTree(groupedMembers[0], ns);
 		int contentMemberStart = hasLeadingStaticMember ? 1 : 0;
 		int contentMemberCount = allMembers.Length - contentMemberStart - (hasTrailingStaticMember ? 1 : 0);
 		XElement[] contentMembers = contentMemberCount > 0 ? allMembers.Skip(contentMemberStart).Take(contentMemberCount).ToArray() : Array.Empty<XElement>();
 		int staticMemberCount = (hasLeadingStaticMember ? 1 : 0) + (hasTrailingStaticMember ? 1 : 0);
-		if ((groupedMembers.Length < 2 && !hasNestedSiblingTree) || contentMembers.Any(member => !IsSupportedGroupBranch(member, ns)) || rowTemplates.Count != contentMembers.Sum(member => CountGroupMemberTemplates(member, ns)) + staticMemberCount)
+		if ((groupedMembers.Length < 2 && !hasNestedMemberTree) || contentMembers.Any(member => !IsSupportedGroupBranch(member, ns)) || rowTemplates.Count != contentMembers.Sum(member => CountGroupMemberTemplates(member, ns)) + staticMemberCount)
 		{
 			return Array.Empty<XElement>();
 		}
@@ -784,10 +854,10 @@ public sealed class RdlcReportEngine
 		return contentMembers;
 	}
 
-	private static bool HasSiblingMemberTree(XElement member, XNamespace ns)
+	private static bool HasNestedMemberTree(XElement member, XNamespace ns)
 	{
 		XElement[] children = member.Element(ns + "TablixMembers")?.Elements(ns + "TablixMember").ToArray() ?? Array.Empty<XElement>();
-		return children.Length > 1 || children.Any(child => HasSiblingMemberTree(child, ns));
+		return children.Length > 0;
 	}
 
 	private static XElement? ReadSupportedSiblingGroupFooter(XElement tablix, XNamespace ns, IReadOnlyList<XElement> rowTemplates)
@@ -954,6 +1024,7 @@ public sealed class RdlcReportEngine
 	}
 
 	private sealed record GroupScope(IReadOnlyList<object?> Rows, IReadOnlyList<string> Keys, IReadOnlyList<IReadOnlyList<object?>> PrefixRows);
+	private sealed record GroupPageBreakLevels(IReadOnlySet<int> BoundaryLevels, IReadOnlySet<int> StartLevels);
 	private readonly record struct GroupPrefixKey(int Level, IReadOnlyList<string> Keys);
 
 	private sealed class GroupPrefixKeyComparer : IEqualityComparer<GroupPrefixKey>
@@ -1682,6 +1753,9 @@ public sealed class RdlcReportEngine
 		public RenderColor Color { get; init; } = RenderColor.Black;
 		public TextDirection Direction { get; init; } = TextDirection.LeftToRight;
 		public string? Hyperlink { get; init; }
+		public RenderRect? TableCellBounds { get; init; }
+		public int ColumnSpan { get; init; } = 1;
+		public int RowSpan { get; init; } = 1;
 	}
 	private sealed record PlacedImage(RenderImage Image, RenderRect Destination);
 	private sealed record PlacedChart(RenderChartType Type, string Title, IReadOnlyList<RenderChartBar> Bars, RenderRect Destination, FontRequest Font);
@@ -1710,6 +1784,7 @@ public sealed class RdlcReportEngine
 		public void DrawLine(RenderPoint start, RenderPoint end, RenderColor color, float strokeWidth) => _inner.DrawLine(Offset(start), Offset(end), color, strokeWidth);
 		public void DrawText(string text, RenderPoint baseline, FontRequest font, RenderColor color, TextDirection direction = TextDirection.LeftToRight) => _inner.DrawText(text, Offset(baseline), font, color, direction);
 		public void DrawHyperlink(string text, RenderPoint baseline, FontRequest font, RenderColor color, string url, TextDirection direction = TextDirection.LeftToRight) => _inner.DrawHyperlink(text, Offset(baseline), font, color, url, direction);
+		public void DrawTableCell(string text, RenderPoint baseline, RenderRect bounds, FontRequest font, RenderColor color, string? url = null, TextDirection direction = TextDirection.LeftToRight, int columnSpan = 1, int rowSpan = 1) => _inner.DrawTableCell(text, Offset(baseline), Offset(bounds), font, color, url, direction, columnSpan, rowSpan);
 		public void DrawImage(RenderImage image, RenderRect destination) => _inner.DrawImage(image, Offset(destination));
 		public void DrawBarChart(string title, IReadOnlyList<RenderChartBar> bars, RenderRect destination, FontRequest font, RenderColor color) => _inner.DrawBarChart(title, bars, Offset(destination), font, color);
 		public void DrawChart(RenderChartType chartType, string title, IReadOnlyList<RenderChartBar> points, RenderRect destination, FontRequest font, RenderColor color) => _inner.DrawChart(chartType, title, points, Offset(destination), font, color);

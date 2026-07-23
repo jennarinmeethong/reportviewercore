@@ -48,6 +48,10 @@
     <None Include="..\fixtures\engine\visibility.rdlc" Link="fixtures\engine\visibility.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\nested-grouped-tablix.rdlc" Link="fixtures\engine\nested-grouped-tablix.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\nested-group-pagebreak.rdlc" Link="fixtures\engine\nested-group-pagebreak.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\nested-group-start-end-pagebreak.rdlc" Link="fixtures\engine\nested-group-start-end-pagebreak.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\nested-group-static-detail-subtotal.rdlc" Link="fixtures\engine\nested-group-static-detail-subtotal.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\nested-static-wrapper-single-child.rdlc" Link="fixtures\engine\nested-static-wrapper-single-child.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\nested-static-wrapper-multiple-children.rdlc" Link="fixtures\engine\nested-static-wrapper-multiple-children.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\grouped-pagebreak.rdlc" Link="fixtures\engine\grouped-pagebreak.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\grouped-null-keys.rdlc" Link="fixtures\engine\grouped-null-keys.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\culture-sorted-tablix.rdlc" Link="fixtures\engine\culture-sorted-tablix.rdlc" CopyToOutputDirectory="PreserveNewest" />
@@ -70,5 +74,6 @@
     <None Include="..\fixtures\engine\unsupported-tablix-subreport.rdlc" Link="fixtures\engine\unsupported-tablix-subreport.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\unsupported-nested-subreport.rdlc" Link="fixtures\engine\unsupported-nested-subreport.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\unsupported-pagebreak.rdlc" Link="fixtures\engine\unsupported-pagebreak.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\merged-cell-table.rdlc" Link="fixtures\engine\merged-cell-table.rdlc" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

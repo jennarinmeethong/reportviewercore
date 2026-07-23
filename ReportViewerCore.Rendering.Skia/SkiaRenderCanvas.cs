@@ -51,6 +51,17 @@ public sealed class SkiaRenderCanvas : IRenderCanvas
 	{
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(text);
+		string normalized = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+		if (normalized.Contains('\n'))
+		{
+			FontMetrics metrics = _fonts.GetMetrics(font);
+			string[] lines = normalized.Split('\n');
+			for (int index = 0; index < lines.Length; index++)
+			{
+				DrawText(lines[index], new RenderPoint(baseline.X, baseline.Y + index * metrics.LineHeight), font, color, direction);
+			}
+			return;
+		}
 
 		using SkiaFont resolvedFont = _fonts.Resolve(font);
 		ShapedText shaped = _shaper.Shape(text, font, direction);

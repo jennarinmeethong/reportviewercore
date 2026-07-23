@@ -8,6 +8,8 @@ Index project-local tools here. Each entry should include purpose, runtime, comm
 - Runtime: Python 3 standard library only.
 - Command: `python3 .devbuddy/tools/validate_v2_artifacts.py --packages artifacts/nuget-v2-loop-hyperlink-whitespace --smoke artifacts/cross-platform-loop-hyperlink-whitespace`
 - Expected output: package archive count and smoke artifact count, or a non-zero exit with the failing archive/path.
+- Feature showcase command: `python3 .devbuddy/tools/validate_v2_artifacts.py --showcase artifacts/feature-showcase`
+- Expected output: exactly seven showcase files (two PNG pages, PDF, HTML, XLSX, DOCX, and a feature manifest), with required feature markers and package parts.
 
 ## Test result artifacts
 
