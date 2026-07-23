@@ -1,5 +1,11 @@
 # KnowledgeBase
 
+## Showcase QA
+
+- RDLC showcase expressions must be complete expressions when they combine literals with fields or aggregates (`="Label: " & Fields!...`); placing an expression after literal text leaves the literal unchanged. Visual QA also catches page-header/body overlap because the constrained engine positions decorations and body items independently.
+
+- When a Windows Forms sample is launched through `dotnet.exe`, an uncaught managed exception can appear only as `0xe0434352`. Add both a top-level `try/catch` and `Application.ThreadException` logging in the sample so the underlying stack trace is available before changing renderer code.
+
 ## Lessons
 
 - Adding an `osx-arm64` RID alone cannot make this repository portable because the legacy rendering path directly invokes `usp10.dll`, `gdi32.dll`, `User32.dll`, `System.Drawing`, and `System.Drawing.Printing`.
@@ -124,7 +130,7 @@
 - Validate finite dimensions at every direct Skia document/bitmap entry point, not only in `ReportDocument`, because callers can use renderer APIs without constructing a document first.
 - Legacy bridge fixtures need both the legacy data-source/query metadata and schema-valid RDLX section/page structure; v2-only fixtures can render portable output yet fail legacy compilation before RPL fallback is exercised.
 - CI smoke and bridge jobs should execute the published/built DLL directly after compilation; this avoids `dotnet run` build-host stalls and tests the exact artifact that was built for the matching RID.
-- The latest cross-platform v2 gate passed 102 rendering tests, 48 RDLC fixture validations, the seven-artifact smoke sample, and a zero-error solution Release build; remaining checklist items require Windows compatibility runs or broader feature design.
+- The latest cross-platform v2 gate passed 117 rendering tests, 56 RDLC fixture validations, the seven-artifact smoke sample, the seven-file RDLC showcase, the cross-format semantic validator, and a zero-error solution Release build; remaining checklist items require hosted Windows/RID runs, broader feature design, or release/legal review.
 - Sibling RDLC row groups are separate tree structures, not extra flattened group-expression levels. The constrained engine can safely render dynamic sibling trees with an explicit static-header/group-header/detail row contract, shape-based template indexes, trailing static subtotal rows scoped to the parent group, and one optional root-level trailing total row scoped to all tablix rows; branch-level `Between` page breaks are applied while other static children, footers, break locations, and ambiguous layouts remain rejected.
 - For sibling branch `PageBreak/BreakLocation=End`, apply the page boundary before the next non-empty group scope instead of after the final group; this preserves end-break intent without manufacturing an empty trailing page.
 - For sibling branch `PageBreak/BreakLocation=Start`, apply the boundary before every non-empty group instance, including the first; this matches RDL group semantics while keeping the constrained implementation deterministic.
@@ -144,3 +150,9 @@
 - The reusable artifact validator can be run after local pack/test/smoke generation: the current v2 gate passes 7 `.nupkg`, 7 `.snupkg`, 109 TRX outcomes, 55 copied RDLC fixtures, and seven-file smoke directories; local `win-x64` execution now passes, while matching-RID hosted execution remains a separate confirmation.
 - Nested member routing should be shape-gated: a single-child static wrapper is safe to recurse only when `CountGroupMemberTemplates` exactly matches the available row templates; otherwise preserve the existing linear fallback rather than misclassifying a root total as a group footer.
 - The same shape gate covers static wrappers with multiple nested dynamic children and scoped leading/trailing rows; add a fixture before broadening the recursive contract so row-template offsets and root totals remain observable.
+- For OpenXML showcase regressions, inspect visible SpreadsheetML cells separately from native chart parts. Chart labels copied into the same grid rows as a chart are visually hidden by the chart anchor; store accessibility text in hidden columns instead. For DOCX, a run of normal paragraphs cannot represent RDLC absolute layout; use page-relative positioned text boxes in the page paragraph and retain native floating image/chart anchors.
+- When a chart item is narrower than the label set, placing category text at the bar's left edge causes adjacent labels to merge. Center labels against the slot (and clamp to the chart bounds) in raster/SVG backends; keep OpenXML labels native to the chart part.
+- Word rejected the generated DOCX when embedded images used floating DrawingML anchors, even though chart anchors opened; VML image shapes with `v:imagedata` relationships are the compatible fallback for page-positioned images. Excel likewise rejected pictures until every SpreadsheetDrawing picture child used the `xdr` namespace and chart frames used `xdr:xfrm`.
+- A visual cross-format audit caught two defects that signature/substring validators missed: HTML SVG text nodes were malformed without a closing `>` after attributes, and narrow chart category labels merged as `GammaDelta`. Parse every SVG and inspect rendered PNG/PDF pages; use a smaller category-label font in narrow Column/Line/Area slots while preserving the original font for values and titles.
+- Cross-format acceptance should be executable, not just a manual checklist: `validate_cross_format.py` extracts the same stable markers from SVG text, PDF text, all DOCX XML/chart parts, and all XLSX worksheet/chart parts, then compares page counts to the manifest.
+- A package can be structurally valid while Word/Excel visibly stack VML/DrawingML over cells or interpret absolute positions differently. For Office exports, embed the exact Skia page PNG as the visible page preview and keep native objects hidden/off-viewport for semantic and compatibility coverage; validate each embedded preview byte-for-byte against its source PNG.

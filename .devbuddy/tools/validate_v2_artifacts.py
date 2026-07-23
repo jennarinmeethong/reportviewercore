@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import zipfile
 import xml.etree.ElementTree as ET
@@ -132,9 +133,7 @@ def validate_showcase(directory: Path) -> None:
     if (directory / "feature-showcase.pdf").read_bytes()[:5] != b"%PDF-":
         fail("feature showcase PDF is invalid")
 
-    html = (directory / "feature-showcase.html").read_text(encoding="utf-8")
-    if "<svg" not in html or "Doughnut" not in html:
-        fail("feature showcase HTML is missing SVG/chart content")
+    validate_html_svg(directory / "feature-showcase.html", "feature showcase")
 
     for name, required in (
         ("feature-showcase.xlsx", ("xl/workbook.xml", "xl/drawings/drawing1.xml")),
@@ -151,7 +150,82 @@ def validate_showcase(directory: Path) -> None:
         except zipfile.BadZipFile as error:
             fail(f"feature showcase archive is not valid: {name}: {error}")
 
-    print(f"validated feature showcase: {len(files)} files and {len(manifest.get('Features', []))} feature markers")
+    validate_rdlc_showcase(directory / "rdlc-feature-showcase")
+    print(f"validated feature showcase: {len(files)} direct files, RDLC showcase validated, and {len(manifest.get('Features', []))} canvas feature markers")
+
+
+def validate_rdlc_showcase(directory: Path) -> None:
+    expected = {
+        "rdlc-feature-showcase.rdlc",
+        "rdlc-feature-showcase-page-1.png",
+        "rdlc-feature-showcase.pdf",
+        "rdlc-feature-showcase.html",
+        "rdlc-feature-showcase.xlsx",
+        "rdlc-feature-showcase.docx",
+        "rdlc-feature-showcase-manifest.json",
+    }
+    if not directory.is_dir():
+        fail(f"RDLC feature showcase directory does not exist: {directory}")
+    files = {path.name for path in directory.iterdir() if path.is_file()}
+    if files != expected:
+        fail(f"RDLC feature showcase files differ; missing={sorted(expected - files)}, extra={sorted(files - expected)}")
+
+    try:
+        root = ET.parse(directory / "rdlc-feature-showcase.rdlc").getroot()
+    except (ET.ParseError, OSError) as error:
+        fail(f"RDLC feature showcase definition is invalid: {error}")
+    if root.tag.rsplit("}", 1)[-1] != "Report":
+        fail("RDLC feature showcase definition has an unexpected root")
+
+    try:
+        manifest = json.loads((directory / "rdlc-feature-showcase-manifest.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        fail(f"RDLC feature showcase manifest is invalid: {error}")
+    if set(manifest.get("Files", [])) != expected:
+        fail("RDLC feature showcase manifest does not enumerate the exact output files")
+    if set(manifest.get("OutputFormats", [])) != {"png", "pdf", "html", "xlsx", "docx"}:
+        fail("RDLC feature showcase manifest does not enumerate every portable output format")
+    features = " ".join(manifest.get("Features", []))
+    for marker in ("header", "footer", "CountRows", "Sum", "Avg", "Min", "Max", "ColSpan", "RowSpan", "hyperlink", "embedded image", "doughnut"):
+        if marker.lower() not in features.lower():
+            fail(f"RDLC feature showcase manifest is missing feature marker: {marker}")
+
+    if (directory / "rdlc-feature-showcase-page-1.png").read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
+        fail("RDLC feature showcase PNG is invalid")
+    if (directory / "rdlc-feature-showcase.pdf").read_bytes()[:5] != b"%PDF-":
+        fail("RDLC feature showcase PDF is invalid")
+    validate_html_svg(directory / "rdlc-feature-showcase.html", "RDLC feature showcase")
+
+    for name, required in (
+        ("rdlc-feature-showcase.xlsx", ("xl/workbook.xml",)),
+        ("rdlc-feature-showcase.docx", ("word/document.xml",)),
+    ):
+        try:
+            with zipfile.ZipFile(directory / name) as archive:
+                if archive.testzip() is not None:
+                    fail(f"RDLC feature showcase archive is corrupt: {name}")
+                missing = [entry for entry in required if entry not in archive.namelist()]
+                if missing:
+                    fail(f"RDLC feature showcase archive {name} is missing: {', '.join(missing)}")
+        except zipfile.BadZipFile as error:
+            fail(f"RDLC feature showcase archive is not valid: {name}: {error}")
+
+
+def validate_html_svg(path: Path, label: str) -> None:
+    try:
+        html = path.read_text(encoding="utf-8")
+    except OSError as error:
+        fail(f"{label} HTML cannot be read: {error}")
+    svg_parts = re.findall(r"<svg\b.*?</svg>", html, flags=re.DOTALL | re.IGNORECASE)
+    if not svg_parts:
+        fail(f"{label} HTML is missing SVG content")
+    for index, svg in enumerate(svg_parts, start=1):
+        try:
+            ET.fromstring(svg)
+        except ET.ParseError as error:
+            fail(f"{label} HTML SVG page {index} is malformed: {error}")
+    if "Doughnut" not in html:
+        fail(f"{label} HTML is missing chart content")
 
 
 def validate_test_results(path: Path) -> None:

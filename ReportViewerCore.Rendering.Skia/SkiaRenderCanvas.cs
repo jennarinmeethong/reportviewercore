@@ -177,6 +177,7 @@ public sealed class SkiaRenderCanvas : IRenderCanvas
 		float baseline = plotBottom - (0 - min) / range * plotHeight;
 		float slotWidth = (destination.Width - 8) / points.Count;
 		float columnWidth = MathF.Max(2, slotWidth * 0.65f);
+		FontRequest labelFont = font with { Size = MathF.Min(font.Size, 9) };
 		for (int index = 0; index < points.Count; index++)
 		{
 			RenderChartBar point = points[index];
@@ -185,7 +186,7 @@ public sealed class SkiaRenderCanvas : IRenderCanvas
 			float y = MathF.Min(baseline, valueY);
 			float height = MathF.Max(2, MathF.Abs(baseline - valueY));
 			FillRectangle(new RenderRect(x, y, columnWidth, height), PieColor(color, index));
-			DrawText(point.Label, new RenderPoint(x, destination.Bottom - font.Size), font, color);
+			DrawText(point.Label, new RenderPoint(CenterLabelX(point.Label, labelFont, x + columnWidth / 2, destination.X, destination.Right), destination.Bottom - labelFont.Size), labelFont, color);
 			DrawText(point.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture), new RenderPoint(x, y - 2), font, color);
 		}
 	}
@@ -250,11 +251,19 @@ public sealed class SkiaRenderCanvas : IRenderCanvas
 			}
 		}
 
+		FontRequest labelFont = font with { Size = MathF.Min(font.Size, 9) };
 		for (int index = 0; index < points.Count; index++)
 		{
 			RenderChartBar point = points[index];
-			DrawText(point.Label, new RenderPoint(coordinates[index].X - font.Size, plotBottom + font.Size), font, color);
+			DrawText(point.Label, new RenderPoint(CenterLabelX(point.Label, labelFont, coordinates[index].X, destination.X, destination.Right), plotBottom + labelFont.Size), labelFont, color);
 		}
+	}
+
+	private static float CenterLabelX(string label, FontRequest font, float centerX, float left, float right)
+	{
+		float estimatedWidth = MathF.Max(font.Size, label.Length * font.Size * 0.7f);
+		float maxX = MathF.Max(left, right - estimatedWidth);
+		return Math.Clamp(centerX - estimatedWidth / 2, left, maxX);
 	}
 
 	private void DrawPieChart(IReadOnlyList<RenderChartBar> points, RenderRect destination, FontRequest font, RenderColor color)

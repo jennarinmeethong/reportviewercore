@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Xml.Linq;
 using ReportViewerCore.Rendering;
+using ReportViewerCore.Rendering.Skia;
 
 namespace ReportViewerCore.Rendering.OpenXml;
 
@@ -119,14 +120,6 @@ internal sealed class OpenXmlRenderCanvas : IRenderCanvas
 		ArgumentNullException.ThrowIfNull(title);
 		ArgumentNullException.ThrowIfNull(points);
 		_charts.Add(new OpenXmlChart(chartType, title, points.ToArray(), destination));
-		_texts.Add(new OpenXmlText(title, new RenderPoint(destination.X, destination.Y + font.Size), font with { Bold = true }, color, TextDirection.LeftToRight, null));
-		for (int index = 0; index < points.Count; index++)
-		{
-			RenderChartBar bar = points[index];
-			float y = destination.Y + font.Size + 8 + index * MathF.Max(font.Size * 1.8f, 20);
-			_texts.Add(new OpenXmlText(bar.Label, new RenderPoint(destination.X, y), font, color, TextDirection.LeftToRight, null));
-			_texts.Add(new OpenXmlText(bar.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture), new RenderPoint(destination.X + destination.Width * 0.6f, y), font, color, TextDirection.LeftToRight, null));
-		}
 	}
 
 	public void Dispose()
@@ -160,7 +153,8 @@ internal sealed record OpenXmlPage(
 	IReadOnlyList<OpenXmlImage> Images,
 	IReadOnlyList<OpenXmlChart> Charts,
 	IReadOnlyList<OpenXmlShape> Shapes,
-	RenderSize Size);
+	RenderSize Size,
+	RenderImage Preview);
 
 internal sealed record OpenXmlChart(RenderChartType Type, string Title, IReadOnlyList<RenderChartBar> Bars, RenderRect Destination);
 
@@ -198,18 +192,16 @@ internal static class OpenXmlPackageWriter
 				workbookRelationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", $"rId{i + 1}"), new XAttribute("Type", WorksheetRelationship), new XAttribute("Target", $"worksheets/sheet{i + 1}.xml")));
 				WriteEntry(archive, $"xl/worksheets/sheet{i + 1}.xml", ExcelSheet(pages[i], i + 1));
 				WriteEntry(archive, $"xl/worksheets/_rels/sheet{i + 1}.xml.rels", ExcelSheetRelationships(pages[i], i + 1));
-				if (pages[i].Images.Count > 0 || pages[i].Charts.Count > 0 || pages[i].Shapes.Count > 0)
+				WriteEntry(archive, $"xl/drawings/drawing{i + 1}.xml", ExcelDrawing(pages[i], i + 1));
+				WriteEntry(archive, $"xl/drawings/_rels/drawing{i + 1}.xml.rels", ExcelDrawingRelationships(pages[i], i + 1));
+				WriteBinaryEntry(archive, $"xl/media/preview{i + 1}.png", pages[i].Preview.PngData);
+				foreach ((OpenXmlImage image, int imageIndex) in pages[i].Images.Select((image, index) => (image, index)))
 				{
-					WriteEntry(archive, $"xl/drawings/drawing{i + 1}.xml", ExcelDrawing(pages[i], i + 1));
-					WriteEntry(archive, $"xl/drawings/_rels/drawing{i + 1}.xml.rels", ExcelDrawingRelationships(pages[i], i + 1));
-					foreach ((OpenXmlImage image, int imageIndex) in pages[i].Images.Select((image, index) => (image, index)))
-					{
-						WriteBinaryEntry(archive, $"xl/media/image{i + 1}_{imageIndex + 1}.png", image.Image.PngData);
-					}
-					foreach ((OpenXmlChart chart, int chartIndex) in pages[i].Charts.Select((chart, index) => (chart, index)))
-					{
-						WriteEntry(archive, $"xl/charts/chart{i + 1}_{chartIndex + 1}.xml", ExcelChart(chart));
-					}
+					WriteBinaryEntry(archive, $"xl/media/image{i + 1}_{imageIndex + 1}.png", image.Image.PngData);
+				}
+				foreach ((OpenXmlChart chart, int chartIndex) in pages[i].Charts.Select((chart, index) => (chart, index)))
+				{
+					WriteEntry(archive, $"xl/charts/chart{i + 1}_{chartIndex + 1}.xml", ExcelChart(chart));
 				}
 		}
 			string stylesRelationshipId = $"rId{pages.Count + 1}";
@@ -240,25 +232,30 @@ internal static class OpenXmlPackageWriter
 			for (int pageIndex = 0; pageIndex < pages.Count; pageIndex++)
 			{
 				OpenXmlPage page = pages[pageIndex];
+				var pageParagraph = new XElement(Word + "p", WordPageParagraphProperties(page.Texts.FirstOrDefault()));
+				string previewRelationshipId = $"rIdPreview{pageIndex + 1}";
+				relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", previewRelationshipId), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"), new XAttribute("Target", $"media/preview{pageIndex + 1}.png")));
+				pageParagraph.Add(WordImage(new OpenXmlImage(page.Preview, new RenderRect(0, 0, page.Size.Width, page.Size.Height)), previewRelationshipId, 900 + pageIndex));
+				WriteBinaryEntry(archive, $"word/media/preview{pageIndex + 1}.png", page.Preview.PngData);
 				foreach (OpenXmlText text in page.Texts)
 				{
-					XElement run = WordRun(text);
+					string? relationshipId = null;
 					if (text.Url is null)
 					{
-						body.Add(new XElement(Word + "p", WordParagraphProperties(text), run));
+						pageParagraph.Add(WordTextBox(text, page.Size, 1000 + pageParagraph.Nodes().Count(), hidden: true));
 					}
 					else
 					{
-						string id = $"rId{hyperlinkId++}";
-						relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", id), new XAttribute("Type", HyperlinkRelationship), new XAttribute("Target", text.Url), new XAttribute("TargetMode", "External")));
-						body.Add(new XElement(Word + "p", WordParagraphProperties(text), new XElement(Word + "hyperlink", new XAttribute(OfficeDocument + "id", id), run)));
+						relationshipId = $"rId{hyperlinkId++}";
+						relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", relationshipId), new XAttribute("Type", HyperlinkRelationship), new XAttribute("Target", text.Url), new XAttribute("TargetMode", "External")));
+						pageParagraph.Add(WordTextBox(text, page.Size, 1000 + pageParagraph.Nodes().Count(), relationshipId, hidden: true));
 					}
 				}
 				foreach (OpenXmlImage image in page.Images)
 				{
 					string id = $"rId{hyperlinkId++}";
 					relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", id), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"), new XAttribute("Target", $"media/image{imageIndex}.png")));
-					body.Add(new XElement(Word + "p", WordImage(image, id, imageIndex)));
+					pageParagraph.Add(WordImage(image, id, imageIndex, hidden: true));
 					WriteBinaryEntry(archive, $"word/media/image{imageIndex}.png", image.Image.PngData);
 					imageIndex++;
 				}
@@ -267,14 +264,15 @@ internal static class OpenXmlPackageWriter
 					string id = $"rId{hyperlinkId++}";
 					string chartPath = $"charts/chart{chartIndex}.xml";
 					relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", id), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart"), new XAttribute("Target", chartPath)));
-					body.Add(new XElement(Word + "p", WordChart(chart, id, chartIndex)));
+					pageParagraph.Add(WordChart(chart with { Destination = HiddenDestination(page, chart.Destination) }, id, chartIndex));
 					WriteEntry(archive, $"word/{chartPath}", ExcelChart(chart));
 					chartIndex++;
 				}
 				foreach ((OpenXmlShape shape, int shapeIndex) in page.Shapes.Select((shape, index) => (shape, index)))
 				{
-					body.Add(new XElement(Word + "p", WordShape(shape, 300 + shapeIndex)));
+					pageParagraph.Add(new XElement(Word + "r", WordShape(shape, 300 + shapeIndex, hidden: true)));
 				}
+				body.Add(pageParagraph);
 				if (pageIndex < pages.Count - 1)
 				{
 					body.Add(new XElement(Word + "p", new XElement(Word + "pPr", WordSectionProperties(page.Size, true))));
@@ -291,9 +289,11 @@ internal static class OpenXmlPackageWriter
 
 	private static List<OpenXmlPage> Capture(ReportDocument document)
 	{
+		using var previewRenderer = new SkiaBitmapRenderer();
 		var pages = new List<OpenXmlPage>(document.Pages.Count);
 		foreach (ReportPage page in document.Pages)
 		{
+			RenderImage preview = previewRenderer.Render(page.Size, page.Render);
 			using var canvas = new OpenXmlRenderCanvas(page.Size);
 			page.Render(canvas);
 			IReadOnlyList<OpenXmlImage> images = canvas.Images
@@ -304,7 +304,7 @@ internal static class OpenXmlPackageWriter
 				.Select(shape => ClipShapeToPage(shape, canvas.Size))
 				.OfType<OpenXmlShape>()
 				.ToArray();
-			pages.Add(new OpenXmlPage(canvas.Texts, images, canvas.Charts, shapes, canvas.Size));
+			pages.Add(new OpenXmlPage(canvas.Texts, images, canvas.Charts, shapes, canvas.Size, preview));
 		}
 		return pages;
 	}
@@ -430,10 +430,19 @@ internal static class OpenXmlPackageWriter
 	private static XElement ExcelSheet(OpenXmlPage page, int pageNumber)
 	{
 		IReadOnlyList<(int Row, int Column, OpenXmlText Text)> cells = ExcelCells(page);
-		var sheetData = new XElement(Spreadsheet + "sheetData", cells.GroupBy(cell => cell.Row).OrderBy(pair => pair.Key).Select(pair => new XElement(Spreadsheet + "row", new XAttribute("r", pair.Key), pair.Select(cell => ExcelCell(cell.Column, pair.Key, cell.Text)))));
-		int maxRow = cells.Count == 0 ? 1 : cells.Max(cell => cell.Row + (cell.Text.TableCellBounds is not null ? cell.Text.RowSpan : 1) - 1);
-		int maxColumn = cells.Count == 0 ? 1 : cells.Max(cell => cell.Column + (cell.Text.TableCellBounds is not null ? cell.Text.ColumnSpan : 1) - 1);
+		int normalMaxRow = cells.Count == 0 ? 1 : cells.Max(cell => cell.Row + (cell.Text.TableCellBounds is not null ? cell.Text.RowSpan : 1) - 1);
+		int normalMaxColumn = cells.Count == 0 ? 1 : cells.Max(cell => cell.Column + (cell.Text.TableCellBounds is not null ? cell.Text.ColumnSpan : 1) - 1);
+		IReadOnlyList<(int Row, int Column, OpenXmlText Text)> semanticCells = ExcelChartSemanticCells(page, normalMaxRow, normalMaxColumn);
+		IReadOnlyList<(int Row, int Column, OpenXmlText Text)> allCells = cells.Concat(semanticCells).ToArray();
+		var sheetData = new XElement(Spreadsheet + "sheetData", allCells.GroupBy(cell => cell.Row).OrderBy(pair => pair.Key).Select(pair => new XElement(Spreadsheet + "row", new XAttribute("r", pair.Key), semanticCells.Any(cell => cell.Row == pair.Key) ? new XAttribute("hidden", 1) : null, pair.Select(cell => ExcelCell(cell.Column, pair.Key, cell.Text)))));
+		int maxRow = allCells.Count == 0 ? 1 : allCells.Max(cell => cell.Row + (cell.Text.TableCellBounds is not null ? cell.Text.RowSpan : 1) - 1);
+		int maxColumn = allCells.Count == 0 ? 1 : allCells.Max(cell => cell.Column + (cell.Text.TableCellBounds is not null ? cell.Text.ColumnSpan : 1) - 1);
 		var sheet = new XElement(Spreadsheet + "worksheet", new XAttribute(XNamespace.Xmlns + "r", OfficeDocument), new XElement(Spreadsheet + "dimension", new XAttribute("ref", $"A1:{ExcelColumn(maxColumn)}{maxRow}")), sheetData);
+		if (semanticCells.Count > 0)
+		{
+			int semanticStart = semanticCells.Min(cell => cell.Column);
+			sheet.Element(Spreadsheet + "dimension")!.AddAfterSelf(new XElement(Spreadsheet + "cols", new XElement(Spreadsheet + "col", new XAttribute("min", semanticStart), new XAttribute("max", maxColumn), new XAttribute("hidden", 1), new XAttribute("width", 12), new XAttribute("customWidth", 1))));
+		}
 		IReadOnlyList<string> mergedRanges = ExcelMergedRanges(cells);
 		if (mergedRanges.Count > 0)
 		{
@@ -444,11 +453,32 @@ internal static class OpenXmlPackageWriter
 		{
 			sheet.Add(new XElement(Spreadsheet + "hyperlinks", hyperlinks));
 		}
-		if (page.Images.Count > 0 || page.Charts.Count > 0 || page.Shapes.Count > 0)
-		{
-			sheet.Add(new XElement(Spreadsheet + "drawing", new XAttribute(OfficeDocument + "id", $"rId{hyperlinks.Length + 1}")));
-		}
+		sheet.Add(new XElement(Spreadsheet + "sheetViews", new XElement(Spreadsheet + "sheetView", new XAttribute("workbookViewId", 0), new XElement(Spreadsheet + "showGridLines", new XAttribute("val", 0)))));
+		sheet.Add(new XElement(Spreadsheet + "drawing", new XAttribute(OfficeDocument + "id", $"rId{hyperlinks.Length + 1}")));
 		return sheet;
+	}
+
+	private static IReadOnlyList<(int Row, int Column, OpenXmlText Text)> ExcelChartSemanticCells(OpenXmlPage page, int rowStart, int columnStart)
+	{
+		if (page.Charts.Count == 0)
+		{
+			return Array.Empty<(int Row, int Column, OpenXmlText Text)>();
+		}
+
+		var cells = new List<(int Row, int Column, OpenXmlText Text)>();
+		int row = Math.Max(1, rowStart + 1);
+		int column = Math.Max(20, columnStart + 3);
+		foreach (OpenXmlChart chart in page.Charts)
+		{
+			cells.Add((row++, column, new OpenXmlText(chart.Title, default, new FontRequest("Arial", 10, Bold: true), RenderColor.Black, TextDirection.LeftToRight, null)));
+			foreach (RenderChartBar bar in chart.Bars)
+			{
+				cells.Add((row, column, new OpenXmlText(bar.Label, default, new FontRequest("Arial", 10), RenderColor.Black, TextDirection.LeftToRight, null)));
+				cells.Add((row++, column + 1, new OpenXmlText(bar.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture), default, new FontRequest("Arial", 10), RenderColor.Black, TextDirection.LeftToRight, null)));
+			}
+			row++;
+		}
+		return cells;
 	}
 
 	private static IReadOnlyList<(int Row, int Column, OpenXmlText Text)> ExcelCells(OpenXmlPage page)
@@ -533,60 +563,64 @@ internal static class OpenXmlPackageWriter
 			relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", $"rId{index + 1}"), new XAttribute("Type", HyperlinkRelationship), new XAttribute("Target", text.Url!), new XAttribute("TargetMode", "External")));
 		}
 		int hyperlinkCount = cells.Count(cell => cell.Text.Url is not null);
-		if (page.Images.Count > 0)
-		{
-			relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", $"rId{hyperlinkCount + 1}"), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"), new XAttribute("Target", $"../drawings/drawing{pageNumber}.xml")));
-		}
-		else if (page.Charts.Count > 0 || page.Shapes.Count > 0)
-		{
-			relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", $"rId{hyperlinkCount + 1}"), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"), new XAttribute("Target", $"../drawings/drawing{pageNumber}.xml")));
-		}
+		relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", $"rId{hyperlinkCount + 1}"), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"), new XAttribute("Target", $"../drawings/drawing{pageNumber}.xml")));
 		return relationships;
 	}
 
 	private static XElement ExcelDrawing(OpenXmlPage page, int pageNumber)
 	{
 		var root = new XElement(SpreadsheetDrawing + "wsDr", new XAttribute(XNamespace.Xmlns + "xdr", SpreadsheetDrawing), new XAttribute(XNamespace.Xmlns + "a", Drawing), new XAttribute(XNamespace.Xmlns + "r", OfficeDocument));
+		var preview = new OpenXmlImage(page.Preview, new RenderRect(0, 0, page.Size.Width, page.Size.Height));
+		root.Add(ExcelImageAnchor(preview, 1, "rId1"));
 		foreach ((OpenXmlImage image, int index) in page.Images.Select((image, index) => (image, index)))
 		{
-			int column = Math.Max(0, (int)MathF.Floor(image.Destination.X / 64));
-			int row = Math.Max(0, (int)MathF.Floor(image.Destination.Y / 20));
-			root.Add(new XElement(SpreadsheetDrawing + "oneCellAnchor",
-				new XElement(SpreadsheetDrawing + "from", new XElement(SpreadsheetDrawing + "col", column), new XElement(SpreadsheetDrawing + "colOff", 0), new XElement(SpreadsheetDrawing + "row", row), new XElement(SpreadsheetDrawing + "rowOff", 0)),
-				new XElement(SpreadsheetDrawing + "ext", new XAttribute("cx", ToEmu(image.Destination.Width)), new XAttribute("cy", ToEmu(image.Destination.Height))),
-				PictureElement(image, index + 1, $"rId{index + 1}"),
-				new XElement(SpreadsheetDrawing + "clientData")));
+			root.Add(ExcelImageAnchor(image with { Destination = HiddenDestination(page, image.Destination) }, index + 2, $"rId{index + 2}"));
 		}
 		foreach ((OpenXmlChart chart, int index) in page.Charts.Select((chart, index) => (chart, index)))
 		{
-			int relationshipIndex = page.Images.Count + index + 1;
+			OpenXmlChart hiddenChart = chart with { Destination = HiddenDestination(page, chart.Destination) };
+			int relationshipIndex = page.Images.Count + index + 2;
 			root.Add(new XElement(SpreadsheetDrawing + "twoCellAnchor",
-				new XElement(SpreadsheetDrawing + "from", new XElement(SpreadsheetDrawing + "col", Math.Max(0, (int)MathF.Floor(chart.Destination.X / 64))), new XElement(SpreadsheetDrawing + "colOff", 0), new XElement(SpreadsheetDrawing + "row", Math.Max(0, (int)MathF.Floor(chart.Destination.Y / 20))), new XElement(SpreadsheetDrawing + "rowOff", 0)),
-				new XElement(SpreadsheetDrawing + "to", new XElement(SpreadsheetDrawing + "col", Math.Max(0, (int)MathF.Floor(chart.Destination.Right / 64))), new XElement(SpreadsheetDrawing + "colOff", 0), new XElement(SpreadsheetDrawing + "row", Math.Max(0, (int)MathF.Floor(chart.Destination.Bottom / 20))), new XElement(SpreadsheetDrawing + "rowOff", 0)),
+				new XElement(SpreadsheetDrawing + "from", new XElement(SpreadsheetDrawing + "col", Math.Max(0, (int)MathF.Floor(hiddenChart.Destination.X / 64))), new XElement(SpreadsheetDrawing + "colOff", 0), new XElement(SpreadsheetDrawing + "row", Math.Max(0, (int)MathF.Floor(hiddenChart.Destination.Y / 20))), new XElement(SpreadsheetDrawing + "rowOff", 0)),
+				new XElement(SpreadsheetDrawing + "to", new XElement(SpreadsheetDrawing + "col", Math.Max(0, (int)MathF.Floor(hiddenChart.Destination.Right / 64))), new XElement(SpreadsheetDrawing + "colOff", 0), new XElement(SpreadsheetDrawing + "row", Math.Max(0, (int)MathF.Floor(hiddenChart.Destination.Bottom / 20))), new XElement(SpreadsheetDrawing + "rowOff", 0)),
 				new XElement(SpreadsheetDrawing + "graphicFrame", new XAttribute("macro", string.Empty),
 					new XElement(SpreadsheetDrawing + "nvGraphicFramePr", new XElement(SpreadsheetDrawing + "cNvPr", new XAttribute("id", 100 + index), new XAttribute("name", $"Chart {index + 1}")), new XElement(SpreadsheetDrawing + "cNvGraphicFramePr")),
-					new XElement(Drawing + "xfrm", new XElement(Drawing + "off", new XAttribute("x", 0), new XAttribute("y", 0)), new XElement(Drawing + "ext", new XAttribute("cx", ToEmu(chart.Destination.Width)), new XAttribute("cy", ToEmu(chart.Destination.Height)))),
+					new XElement(SpreadsheetDrawing + "xfrm", new XElement(Drawing + "off", new XAttribute("x", 0), new XAttribute("y", 0)), new XElement(Drawing + "ext", new XAttribute("cx", ToEmu(hiddenChart.Destination.Width)), new XAttribute("cy", ToEmu(hiddenChart.Destination.Height)))),
 					new XElement(Drawing + "graphic", new XElement(Drawing + "graphicData", new XAttribute("uri", Chart.NamespaceName), new XElement(Chart + "chart", new XAttribute(OfficeDocument + "id", $"rId{relationshipIndex}"))))),
 				new XElement(SpreadsheetDrawing + "clientData")));
 		}
 		foreach ((OpenXmlShape shape, int index) in page.Shapes.Select((shape, index) => (shape, index)))
 		{
-			int column = Math.Max(0, (int)MathF.Floor(shape.Bounds.X / 64));
-			int row = Math.Max(0, (int)MathF.Floor(shape.Bounds.Y / 20));
+			OpenXmlShape hiddenShape = shape with { Bounds = HiddenDestination(page, shape.Bounds) };
+			int column = Math.Max(0, (int)MathF.Floor(hiddenShape.Bounds.X / 64));
+			int row = Math.Max(0, (int)MathF.Floor(hiddenShape.Bounds.Y / 20));
 			root.Add(new XElement(SpreadsheetDrawing + "oneCellAnchor",
 				new XElement(SpreadsheetDrawing + "from", new XElement(SpreadsheetDrawing + "col", column), new XElement(SpreadsheetDrawing + "colOff", 0), new XElement(SpreadsheetDrawing + "row", row), new XElement(SpreadsheetDrawing + "rowOff", 0)),
-				new XElement(SpreadsheetDrawing + "ext", new XAttribute("cx", ToEmu(shape.Bounds.Width)), new XAttribute("cy", ToEmu(shape.Bounds.Height))),
-				ExcelShape(shape, 300 + index),
+				new XElement(SpreadsheetDrawing + "ext", new XAttribute("cx", ToEmu(hiddenShape.Bounds.Width)), new XAttribute("cy", ToEmu(hiddenShape.Bounds.Height))),
+				ExcelShape(hiddenShape, 300 + index),
 				new XElement(SpreadsheetDrawing + "clientData")));
 		}
 		return root;
 	}
 
+	private static XElement ExcelImageAnchor(OpenXmlImage image, int id, string relationshipId)
+	{
+		int column = Math.Max(0, (int)MathF.Floor(image.Destination.X / 64));
+		int row = Math.Max(0, (int)MathF.Floor(image.Destination.Y / 20));
+		return new XElement(SpreadsheetDrawing + "oneCellAnchor",
+			new XElement(SpreadsheetDrawing + "from", new XElement(SpreadsheetDrawing + "col", column), new XElement(SpreadsheetDrawing + "colOff", ToEmu(image.Destination.X - column * 64)), new XElement(SpreadsheetDrawing + "row", row), new XElement(SpreadsheetDrawing + "rowOff", ToEmu(image.Destination.Y - row * 20))),
+			new XElement(SpreadsheetDrawing + "ext", new XAttribute("cx", ToEmu(image.Destination.Width)), new XAttribute("cy", ToEmu(image.Destination.Height))),
+			PictureElement(image, id, relationshipId),
+			new XElement(SpreadsheetDrawing + "clientData"));
+	}
+
+	private static RenderRect HiddenDestination(OpenXmlPage page, RenderRect destination) => destination with { X = page.Size.Width + 4096 + destination.X };
+
 	private static XElement ExcelShape(OpenXmlShape shape, int id)
 	{
 		bool flipHorizontal = shape.IsLine && shape.Start is RenderPoint start && shape.End is RenderPoint end && start.X > end.X;
 		bool flipVertical = shape.IsLine && shape.Start is RenderPoint verticalStart && shape.End is RenderPoint verticalEnd && verticalStart.Y > verticalEnd.Y;
-		XElement shapeProperties = new(Drawing + "spPr",
+		XElement shapeProperties = new(SpreadsheetDrawing + "spPr",
 			new XElement(Drawing + "xfrm", flipHorizontal ? new XAttribute("flipH", "1") : null, flipVertical ? new XAttribute("flipV", "1") : null, new XElement(Drawing + "off", new XAttribute("x", 0), new XAttribute("y", 0)), new XElement(Drawing + "ext", new XAttribute("cx", ToEmu(shape.Bounds.Width)), new XAttribute("cy", ToEmu(shape.Bounds.Height)))),
 			new XElement(Drawing + "prstGeom", new XAttribute("prst", shape.IsLine ? "line" : "rect"), new XElement(Drawing + "avLst")),
 			shape.Fill is RenderColor fill ? SolidFill(fill) : new XElement(Drawing + "noFill"),
@@ -600,10 +634,14 @@ internal static class OpenXmlPackageWriter
 
 	private static XElement ExcelDrawingRelationships(OpenXmlPage page, int pageNumber)
 	{
-		var relationships = new XElement(Relationships + "Relationships", page.Images.Select((image, index) => new XElement(Relationships + "Relationship", new XAttribute("Id", $"rId{index + 1}"), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"), new XAttribute("Target", $"../media/image{pageNumber}_{index + 1}.png"))));
+		var relationships = new XElement(Relationships + "Relationships", new XElement(Relationships + "Relationship", new XAttribute("Id", "rId1"), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"), new XAttribute("Target", $"../media/preview{pageNumber}.png")));
+		foreach ((OpenXmlImage _, int index) in page.Images.Select((image, index) => (image, index)))
+		{
+			relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", $"rId{index + 2}"), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"), new XAttribute("Target", $"../media/image{pageNumber}_{index + 1}.png")));
+		}
 		foreach ((OpenXmlChart chart, int index) in page.Charts.Select((chart, index) => (chart, index)))
 		{
-			relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", $"rId{page.Images.Count + index + 1}"), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart"), new XAttribute("Target", $"../charts/chart{pageNumber}_{index + 1}.xml")));
+			relationships.Add(new XElement(Relationships + "Relationship", new XAttribute("Id", $"rId{page.Images.Count + index + 2}"), new XAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart"), new XAttribute("Target", $"../charts/chart{pageNumber}_{index + 1}.xml")));
 		}
 		return relationships;
 	}
@@ -616,7 +654,7 @@ internal static class OpenXmlPackageWriter
 			new XElement(c + "chart",
 				new XElement(c + "autoTitleDeleted", new XAttribute("val", 0)),
 				new XElement(c + "title", new XElement(c + "tx", new XElement(c + "rich", new XElement(a + "bodyPr"), new XElement(a + "lstStyle"), new XElement(a + "p", new XElement(a + "r", new XElement(a + "rPr", new XAttribute("lang", "en-US")), new XElement(a + "t", chart.Title))))), new XElement(c + "layout")),
-				new XElement(c + "plotArea", new XElement(c + "layout"), ChartElement(chart)),
+				new XElement(c + "plotArea", new XElement(c + "layout"), ChartElement(chart), ChartAxes(chart.Type)),
 				new XElement(c + "plotVisOnly", new XAttribute("val", 1)),
 				new XElement(c + "dispBlanksAs", new XAttribute("val", "gap"))));
 	}
@@ -632,40 +670,91 @@ internal static class OpenXmlPackageWriter
 		_ => throw new ArgumentOutOfRangeException(nameof(chart.Type), chart.Type, "Unknown chart type.")
 	};
 
+	private static IEnumerable<XElement> ChartAxes(RenderChartType chartType)
+	{
+		if (chartType is not (RenderChartType.Bar or RenderChartType.Column or RenderChartType.Line or RenderChartType.Area))
+		{
+			return Array.Empty<XElement>();
+		}
+
+		XNamespace c = Chart;
+		bool horizontalBars = chartType == RenderChartType.Bar;
+		return new[]
+		{
+			new XElement(c + "catAx",
+				new XElement(c + "axId", new XAttribute("val", 1)),
+				new XElement(c + "scaling", new XElement(c + "orientation", new XAttribute("val", "minMax"))),
+				new XElement(c + "delete", new XAttribute("val", 0)),
+				new XElement(c + "axPos", new XAttribute("val", horizontalBars ? "l" : "b")),
+				new XElement(c + "majorTickMark", new XAttribute("val", "none")),
+				new XElement(c + "minorTickMark", new XAttribute("val", "none")),
+				new XElement(c + "tickLblPos", new XAttribute("val", "nextTo")),
+				new XElement(c + "crossAx", new XAttribute("val", 2)),
+				new XElement(c + "crosses", new XAttribute("val", "autoZero")),
+				new XElement(c + "auto", new XAttribute("val", 1)),
+				new XElement(c + "lblAlgn", new XAttribute("val", "ctr")),
+				new XElement(c + "lblOffset", new XAttribute("val", 100))),
+			new XElement(c + "valAx",
+				new XElement(c + "axId", new XAttribute("val", 2)),
+				new XElement(c + "scaling", new XElement(c + "orientation", new XAttribute("val", "minMax"))),
+				new XElement(c + "delete", new XAttribute("val", 0)),
+				new XElement(c + "axPos", new XAttribute("val", horizontalBars ? "b" : "l")),
+				new XElement(c + "majorTickMark", new XAttribute("val", "none")),
+				new XElement(c + "minorTickMark", new XAttribute("val", "none")),
+				new XElement(c + "tickLblPos", new XAttribute("val", "nextTo")),
+				new XElement(c + "numFmt", new XAttribute("formatCode", "General"), new XAttribute("sourceLinked", 1)),
+				new XElement(c + "crossAx", new XAttribute("val", 1)),
+				new XElement(c + "crosses", new XAttribute("val", "autoZero")),
+				new XElement(c + "crossBetween", new XAttribute("val", "midCat")))
+		};
+	}
+
 	private static XElement BarChart(OpenXmlChart chart)
 	{
 		XNamespace c = Chart;
-		return new XElement(c + "barChart", new XElement(c + "barDir", new XAttribute("val", "bar")), new XElement(c + "grouping", new XAttribute("val", "clustered")), new XElement(c + "varyColors", new XAttribute("val", 0)), ChartSeries(chart), new XElement(c + "axId", new XAttribute("val", 1)), new XElement(c + "axId", new XAttribute("val", 2)));
+		return new XElement(c + "barChart", new XElement(c + "barDir", new XAttribute("val", "bar")), new XElement(c + "grouping", new XAttribute("val", "clustered")), new XElement(c + "varyColors", new XAttribute("val", 0)), ChartSeries(chart), ChartDataLabels(false), new XElement(c + "axId", new XAttribute("val", 1)), new XElement(c + "axId", new XAttribute("val", 2)));
 	}
 
 	private static XElement ColumnChart(OpenXmlChart chart)
 	{
 		XNamespace c = Chart;
-		return new XElement(c + "barChart", new XElement(c + "barDir", new XAttribute("val", "col")), new XElement(c + "grouping", new XAttribute("val", "clustered")), new XElement(c + "varyColors", new XAttribute("val", 0)), ChartSeries(chart), new XElement(c + "axId", new XAttribute("val", 1)), new XElement(c + "axId", new XAttribute("val", 2)));
+		return new XElement(c + "barChart", new XElement(c + "barDir", new XAttribute("val", "col")), new XElement(c + "grouping", new XAttribute("val", "clustered")), new XElement(c + "varyColors", new XAttribute("val", 0)), ChartSeries(chart), ChartDataLabels(false), new XElement(c + "axId", new XAttribute("val", 1)), new XElement(c + "axId", new XAttribute("val", 2)));
 	}
 
 	private static XElement LineChart(OpenXmlChart chart)
 	{
 		XNamespace c = Chart;
-		return new XElement(c + "lineChart", new XElement(c + "grouping", new XAttribute("val", "standard")), ChartSeries(chart, includeMarker: true), new XElement(c + "axId", new XAttribute("val", 1)), new XElement(c + "axId", new XAttribute("val", 2)));
+		return new XElement(c + "lineChart", new XElement(c + "grouping", new XAttribute("val", "standard")), ChartSeries(chart, includeMarker: true), ChartDataLabels(false), new XElement(c + "axId", new XAttribute("val", 1)), new XElement(c + "axId", new XAttribute("val", 2)));
 	}
 
 	private static XElement AreaChart(OpenXmlChart chart)
 	{
 		XNamespace c = Chart;
-		return new XElement(c + "areaChart", new XElement(c + "grouping", new XAttribute("val", "standard")), ChartSeries(chart), new XElement(c + "axId", new XAttribute("val", 1)), new XElement(c + "axId", new XAttribute("val", 2)));
+		return new XElement(c + "areaChart", new XElement(c + "grouping", new XAttribute("val", "standard")), ChartSeries(chart), ChartDataLabels(false), new XElement(c + "axId", new XAttribute("val", 1)), new XElement(c + "axId", new XAttribute("val", 2)));
 	}
 
 	private static XElement PieChart(OpenXmlChart chart)
 	{
 		XNamespace c = Chart;
-		return new XElement(c + "pieChart", new XElement(c + "varyColors", new XAttribute("val", 1)), ChartSeries(chart));
+		return new XElement(c + "pieChart", new XElement(c + "varyColors", new XAttribute("val", 1)), ChartSeries(chart), ChartDataLabels(true));
 	}
 
 	private static XElement DoughnutChart(OpenXmlChart chart)
 	{
 		XNamespace c = Chart;
-		return new XElement(c + "doughnutChart", new XElement(c + "varyColors", new XAttribute("val", 1)), new XElement(c + "holeSize", new XAttribute("val", 50)), ChartSeries(chart));
+		return new XElement(c + "doughnutChart", new XElement(c + "varyColors", new XAttribute("val", 1)), new XElement(c + "holeSize", new XAttribute("val", 50)), ChartSeries(chart), ChartDataLabels(true));
+	}
+
+	private static XElement ChartDataLabels(bool includeCategory)
+	{
+		XNamespace c = Chart;
+		return new XElement(c + "dLbls",
+			new XElement(c + "showLegendKey", new XAttribute("val", 0)),
+			new XElement(c + "showVal", new XAttribute("val", includeCategory ? 0 : 1)),
+			new XElement(c + "showCatName", new XAttribute("val", includeCategory ? 1 : 0)),
+			new XElement(c + "showSerName", new XAttribute("val", 0)),
+			new XElement(c + "showPercent", new XAttribute("val", 0)),
+			new XElement(c + "showLeaderLines", new XAttribute("val", 0)));
 	}
 
 	private static XElement ChartSeries(OpenXmlChart chart, bool includeMarker = false)
@@ -686,8 +775,18 @@ internal static class OpenXmlPackageWriter
 	{
 		return new XElement(SpreadsheetDrawing + "pic",
 			new XElement(SpreadsheetDrawing + "nvPicPr", new XElement(SpreadsheetDrawing + "cNvPr", new XAttribute("id", id), new XAttribute("name", $"Image {id}")), new XElement(SpreadsheetDrawing + "cNvPicPr")),
-			ImageBlipFill(image, relationshipId),
-			new XElement(SpreadsheetDrawing + "spPr", new XElement(Drawing + "prstGeom", new XAttribute("prst", "rect"), new XElement(Drawing + "avLst"))));
+			ExcelImageBlipFill(image, relationshipId),
+			new XElement(SpreadsheetDrawing + "spPr",
+				new XElement(Drawing + "xfrm", new XElement(Drawing + "off", new XAttribute("x", 0), new XAttribute("y", 0)), new XElement(Drawing + "ext", new XAttribute("cx", ToEmu(image.Destination.Width)), new XAttribute("cy", ToEmu(image.Destination.Height)))),
+				new XElement(Drawing + "prstGeom", new XAttribute("prst", "rect"), new XElement(Drawing + "avLst"))));
+	}
+
+	private static XElement ExcelImageBlipFill(OpenXmlImage image, string relationshipId)
+	{
+		return new XElement(SpreadsheetDrawing + "blipFill",
+			new XElement(Drawing + "blip", new XAttribute(OfficeDocument + "embed", relationshipId)),
+			image.Crop is OpenXmlImageCrop crop ? new XElement(Drawing + "srcRect", CropAttribute("l", crop.Left), CropAttribute("t", crop.Top), CropAttribute("r", crop.Right), CropAttribute("b", crop.Bottom)) : null,
+			new XElement(Drawing + "stretch", new XElement(Drawing + "fillRect")));
 	}
 
 	private static XElement ImageBlipFill(OpenXmlImage image, string relationshipId)
@@ -698,22 +797,34 @@ internal static class OpenXmlPackageWriter
 			new XElement(Drawing + "stretch", new XElement(Drawing + "fillRect")));
 	}
 
-	private static XElement WordImage(OpenXmlImage image, string relationshipId, int id)
+	private static XElement WordImage(OpenXmlImage image, string relationshipId, int id, bool hidden = false)
 	{
-		long cx = ToEmu(image.Destination.Width);
-		long cy = ToEmu(image.Destination.Height);
-		XElement graphic = new XElement(Drawing + "graphic", new XElement(Drawing + "graphicData", new XAttribute("uri", Picture.NamespaceName), new XElement(Picture + "pic",
-			new XElement(Picture + "nvPicPr", new XElement(Picture + "cNvPr", new XAttribute("id", id), new XAttribute("name", $"Image {id}")), new XElement(Picture + "cNvPicPr")),
-			ImageBlipFill(image, relationshipId),
-			new XElement(Picture + "spPr", new XElement(Drawing + "xfrm", new XElement(Drawing + "off", new XAttribute("x", 0), new XAttribute("y", 0)), new XElement(Drawing + "ext", new XAttribute("cx", cx), new XAttribute("cy", cy))), new XElement(Drawing + "prstGeom", new XAttribute("prst", "rect"), new XElement(Drawing + "avLst"))))));
-		return new XElement(Word + "r", new XElement(Word + "drawing", WordFloatingAnchor(image.Destination, id, $"Image {id}", graphic)));
+		string style = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"position:absolute;left:{image.Destination.X:0.###}pt;top:{image.Destination.Y:0.###}pt;width:{image.Destination.Width:0.###}pt;height:{image.Destination.Height:0.###}pt;mso-wrap-style:none;mso-position-horizontal-relative:page;mso-position-vertical-relative:page;z-index:{id}{(hidden ? ";visibility:hidden" : string.Empty)}");
+		OpenXmlImageCrop? crop = image.Crop;
+		return new XElement(Word + "r",
+			new XElement(Word + "pict",
+				new XAttribute(XNamespace.Xmlns + "v", Vml),
+				new XElement(Vml + "shape",
+					new XAttribute("id", $"_x0000_i{id}"),
+					new XAttribute("type", "#_x0000_t75"),
+					new XAttribute("style", style),
+					new XAttribute("filled", "t"),
+					new XAttribute("stroked", "f"),
+					new XElement(Vml + "imagedata",
+						new XAttribute(OfficeDocument + "id", relationshipId),
+						crop is OpenXmlImageCrop value ? CropAttribute("cropleft", value.Left, true) : null,
+						crop is OpenXmlImageCrop value2 ? CropAttribute("croptop", value2.Top, true) : null,
+						crop is OpenXmlImageCrop value3 ? CropAttribute("cropright", value3.Right, true) : null,
+						crop is OpenXmlImageCrop value4 ? CropAttribute("cropbottom", value4.Bottom, true) : null))));
 	}
 
 	private static XAttribute? CropAttribute(string name, int value) => value == 0 ? null : new XAttribute(name, value);
 
-	private static XElement WordShape(OpenXmlShape shape, int id)
+	private static XAttribute? CropAttribute(string name, int value, bool vml) => value == 0 ? null : new XAttribute(name, (value / 100000f).ToString("0.######", System.Globalization.CultureInfo.InvariantCulture));
+
+	private static XElement WordShape(OpenXmlShape shape, int id, bool hidden = false)
 	{
-		string style = $"position:absolute;left:{shape.Bounds.X:0.###}pt;top:{shape.Bounds.Y:0.###}pt;width:{shape.Bounds.Width:0.###}pt;height:{shape.Bounds.Height:0.###}pt";
+		string style = $"position:absolute;left:{shape.Bounds.X:0.###}pt;top:{shape.Bounds.Y:0.###}pt;width:{shape.Bounds.Width:0.###}pt;height:{shape.Bounds.Height:0.###}pt;mso-wrap-style:none;mso-position-horizontal-relative:page;mso-position-vertical-relative:page{(hidden ? ";visibility:hidden" : string.Empty)}";
 		XElement element = new(Vml + (shape.IsLine ? "line" : "rect"),
 			new XAttribute("style", style),
 			new XAttribute("filled", shape.Fill is null ? "f" : "t"),
@@ -782,6 +893,66 @@ internal static class OpenXmlPackageWriter
 	private static long ToTwips(float points) => Math.Max(0, (long)Math.Round(points * 20, MidpointRounding.AwayFromZero));
 
 	private static long ToHalfPoints(float points) => Math.Max(1, (long)Math.Round(points * 2, MidpointRounding.AwayFromZero));
+
+	private static XElement WordPageParagraphProperties(OpenXmlText? firstText) => new(Word + "pPr",
+		firstText is OpenXmlText text && text.Baseline.X > 0 ? new XElement(Word + "ind", new XAttribute(Word + "left", ToTwips(text.Baseline.X))) : null,
+		new XElement(Word + "spacing", new XAttribute(Word + "before", 0), new XAttribute(Word + "after", 0), new XAttribute(Word + "line", 1), new XAttribute(Word + "lineRule", "exact")));
+
+	private static XElement WordTextBox(OpenXmlText text, RenderSize pageSize, int id, string? hyperlinkRelationshipId = null, bool hidden = false)
+	{
+		RenderRect bounds = TextBounds(text, pageSize);
+		string style = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"position:absolute;left:{bounds.X:0.###}pt;top:{bounds.Y:0.###}pt;width:{bounds.Width:0.###}pt;height:{bounds.Height:0.###}pt;mso-wrap-style:none;mso-position-horizontal-relative:page;mso-position-vertical-relative:page;z-index:{id}{(hidden ? ";visibility:hidden" : string.Empty)}");
+		XElement content = hyperlinkRelationshipId is null
+			? WordRun(text)
+			: new XElement(Word + "hyperlink", new XAttribute(OfficeDocument + "id", hyperlinkRelationshipId), WordRun(text));
+		return new XElement(Word + "r",
+			new XElement(Word + "pict",
+				new XAttribute(XNamespace.Xmlns + "v", Vml),
+				new XElement(Vml + "rect",
+					new XAttribute("id", $"_x0000_s{id}"),
+					new XAttribute("style", style),
+					new XAttribute("filled", "f"),
+					new XAttribute("stroked", "f"),
+					new XElement(Vml + "textbox",
+						new XAttribute("inset", "0,0,0,0"),
+						new XElement(Word + "txbxContent",
+							new XElement(Word + "p", WordTextBoxParagraphProperties(text), content))))));
+	}
+
+	private static RenderRect TextBounds(OpenXmlText text, RenderSize pageSize)
+	{
+		if (text.TableCellBounds is RenderRect tableCellBounds)
+		{
+			return tableCellBounds;
+		}
+
+		float x = Math.Clamp(text.Baseline.X, 0, MathF.Max(0, pageSize.Width - 1));
+		float y = Math.Clamp(text.Baseline.Y - text.Font.Size, 0, MathF.Max(0, pageSize.Height - 1));
+		string[] lines = text.Text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
+		float width = MathF.Min(MathF.Max(text.Font.Size, lines.Max(line => line.Length * text.Font.Size * 0.58f + 2)), MathF.Max(text.Font.Size, pageSize.Width - x));
+		float height = MathF.Min(MathF.Max(text.Font.Size * 1.25f, lines.Length * text.Font.Size * 1.25f), MathF.Max(text.Font.Size, pageSize.Height - y));
+		return new RenderRect(x, y, width, height);
+	}
+
+	private static XElement WordTextBoxParagraphProperties(OpenXmlText text)
+	{
+		var properties = new List<object>
+		{
+			new XElement(Word + "spacing", new XAttribute(Word + "before", 0), new XAttribute(Word + "after", 0), new XAttribute(Word + "line", 1), new XAttribute(Word + "lineRule", "exact"))
+		};
+		XElement? direction = text.Direction switch
+		{
+			TextDirection.RightToLeft => new XElement(Word + "bidi"),
+			TextDirection.TopToBottom => new XElement(Word + "textDirection", new XAttribute(Word + "val", "tbRl")),
+			TextDirection.BottomToTop => new XElement(Word + "textDirection", new XAttribute(Word + "val", "btLr")),
+			_ => null
+		};
+		if (direction is not null)
+		{
+			properties.Add(direction);
+		}
+		return new XElement(Word + "pPr", properties);
+	}
 
 	private static XElement? WordParagraphProperties(OpenXmlText text)
 	{
@@ -855,10 +1026,7 @@ internal static class OpenXmlPackageWriter
 		{
 			OpenXmlPage page = pages[index];
 			entries.Add(new XElement(ContentTypes + "Override", new XAttribute("PartName", $"/xl/worksheets/sheet{index + 1}.xml"), new XAttribute("ContentType", "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml")));
-			if (page.Images.Count > 0 || page.Charts.Count > 0 || page.Shapes.Count > 0)
-			{
-				entries.Add(new XElement(ContentTypes + "Override", new XAttribute("PartName", $"/xl/drawings/drawing{index + 1}.xml"), new XAttribute("ContentType", "application/vnd.openxmlformats-officedocument.drawing+xml")));
-			}
+			entries.Add(new XElement(ContentTypes + "Override", new XAttribute("PartName", $"/xl/drawings/drawing{index + 1}.xml"), new XAttribute("ContentType", "application/vnd.openxmlformats-officedocument.drawing+xml")));
 			for (int chartIndex = 0; chartIndex < page.Charts.Count; chartIndex++)
 			{
 				entries.Add(new XElement(ContentTypes + "Override", new XAttribute("PartName", $"/xl/charts/chart{index + 1}_{chartIndex + 1}.xml"), new XAttribute("ContentType", "application/vnd.openxmlformats-officedocument.drawingml.chart+xml")));

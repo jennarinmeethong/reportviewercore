@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <ReportParameters>
+    <ReportParameter Name="TargetUrl"><DataType>String</DataType></ReportParameter>
+    <ReportParameter Name="HideDetails"><DataType>Boolean</DataType><DefaultValues><DefaultValue>false</DefaultValue></DefaultValues></ReportParameter>
+  </ReportParameters>
+  <DataSets>
+    <DataSet Name="Items">
+      <Fields>
+        <Field Name="Category"><DataField>Category</DataField></Field>
+        <Field Name="Name"><DataField>Name</DataField></Field>
+        <Field Name="Amount"><DataField>Amount</DataField></Field>
+      </Fields>
+    </DataSet>
+  </DataSets>
+  <EmbeddedImages>
+    <EmbeddedImage Name="ShowcaseLogo"><MIMEType>image/png</MIMEType><ImageData>iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=</ImageData></EmbeddedImage>
+  </EmbeddedImages>
+  <ReportSections>
+    <ReportSection>
+      <PageHeader>
+        <Height>1cm</Height>
+        <ReportItems><Textbox Name="PageHeader"><Left>0.5cm</Left><Top>0.2cm</Top><Width>18cm</Width><Height>0.5cm</Height><Style><FontSize>10pt</FontSize><FontWeight>Bold</FontWeight><Color>#18304E</Color></Style><TextRuns><TextRun><Value>RDLC engine feature showcase — repeating page header</Value></TextRun></TextRuns></Textbox></ReportItems>
+      </PageHeader>
+      <PageFooter>
+        <Height>1cm</Height>
+        <ReportItems><Textbox Name="PageFooter"><Left>0.5cm</Left><Top>0.2cm</Top><Width>18cm</Width><Height>0.5cm</Height><Style><FontSize>9pt</FontSize><Color>#4B5563</Color></Style><TextRuns><TextRun><Value>RDLC engine feature showcase — repeating page footer</Value></TextRun></TextRuns></Textbox></ReportItems>
+      </PageFooter>
+      <Body>
+        <ReportItems>
+          <Rectangle Name="OverviewFrame"><Left>0.5cm</Left><Top>1.5cm</Top><Width>20cm</Width><Height>2.6cm</Height><Style><BackgroundColor>#F4F7FB</BackgroundColor><BorderColor>#336699</BorderColor><BorderWidth>1pt</BorderWidth></Style></Rectangle>
+          <Textbox Name="Title"><Left>0.8cm</Left><Top>1.7cm</Top><Width>14cm</Width><Height>0.7cm</Height><Style><FontSize>20pt</FontSize><FontWeight>Bold</FontWeight><Color>#18304E</Color></Style><TextRuns><TextRun><Value>RDLC engine feature showcase</Value></TextRun></TextRuns></Textbox>
+          <Textbox Name="Summary"><Left>0.8cm</Left><Top>2.55cm</Top><Width>14cm</Width><Height>0.8cm</Height><Style><FontSize>11pt</FontSize><Color>#374151</Color></Style><TextRuns><TextRun><Value>Fields, parameters, grouping, aggregates, visibility, links, images, shapes, and charts.</Value></TextRun></TextRuns></Textbox>
+          <Image Name="Logo"><Source>Embedded</Source><Value>ShowcaseLogo</Value><MIMEType>image/png</MIMEType><Left>18.5cm</Left><Top>1.8cm</Top><Width>1.2cm</Width><Height>1.2cm</Height></Image>
+          <Textbox Name="ParameterLink"><Left>0.8cm</Left><Top>3.55cm</Top><Width>8cm</Width><Height>0.5cm</Height><Style><FontSize>9pt</FontSize><Color>#145AA0</Color></Style><ActionInfo><Actions><Action><Hyperlink>=Parameters!TargetUrl.Value</Hyperlink></Action></Actions></ActionInfo><TextRuns><TextRun><Value>Open parameter-driven hyperlink</Value></TextRun></TextRuns></Textbox>
+          <Textbox Name="ConditionalDetail"><Left>10cm</Left><Top>3.55cm</Top><Width>8cm</Width><Height>0.5cm</Height><Visibility><Hidden>=Parameters!HideDetails.Value</Hidden><ToggleItem>ConditionalDetail</ToggleItem></Visibility><Style><FontSize>9pt</FontSize><Color>#166534</Color></Style><TextRuns><TextRun><Value>Conditional visibility is enabled</Value></TextRun></TextRuns></Textbox>
+          <Line Name="ChartRule"><Left>0.5cm</Left><Top>4.25cm</Top><Width>20cm</Width><Height>0cm</Height><Style><BorderColor>#9CA3AF</BorderColor><BorderWidth>1pt</BorderWidth></Style></Line>
+          <Chart Name="BarChart"><ChartType>Bar</ChartType><Title>Bar</Title><DataSetName>Items</DataSetName><CategoryExpression>=Fields!Name.Value</CategoryExpression><ValueExpression>=Fields!Amount.Value</ValueExpression><Left>0.7cm</Left><Top>4.6cm</Top><Width>6.2cm</Width><Height>4cm</Height></Chart>
+          <Chart Name="ColumnChart"><ChartType>Column</ChartType><Title>Column</Title><DataSetName>Items</DataSetName><CategoryExpression>=Fields!Name.Value</CategoryExpression><ValueExpression>=Fields!Amount.Value</ValueExpression><Left>7.5cm</Left><Top>4.6cm</Top><Width>6.2cm</Width><Height>4cm</Height></Chart>
+          <Chart Name="LineChart"><ChartType>Line</ChartType><Title>Line</Title><DataSetName>Items</DataSetName><CategoryExpression>=Fields!Name.Value</CategoryExpression><ValueExpression>=Fields!Amount.Value</ValueExpression><Left>14.3cm</Left><Top>4.6cm</Top><Width>6.2cm</Width><Height>4cm</Height></Chart>
+          <Chart Name="AreaChart"><ChartType>Area</ChartType><Title>Area</Title><DataSetName>Items</DataSetName><CategoryExpression>=Fields!Name.Value</CategoryExpression><ValueExpression>=Fields!Amount.Value</ValueExpression><Left>0.7cm</Left><Top>9cm</Top><Width>6.2cm</Width><Height>4cm</Height></Chart>
+          <Chart Name="PieChart"><ChartType>Pie</ChartType><Title>Pie</Title><DataSetName>Items</DataSetName><CategoryExpression>=Fields!Name.Value</CategoryExpression><ValueExpression>=Fields!Amount.Value</ValueExpression><Left>7.5cm</Left><Top>9cm</Top><Width>6.2cm</Width><Height>4cm</Height></Chart>
+          <Chart Name="DoughnutChart"><ChartType>Doughnut</ChartType><Title>Doughnut</Title><DataSetName>Items</DataSetName><CategoryExpression>=Fields!Name.Value</CategoryExpression><ValueExpression>=Fields!Amount.Value</ValueExpression><Left>14.3cm</Left><Top>9cm</Top><Width>6.2cm</Width><Height>4cm</Height></Chart>
+          <Rectangle Name="TableFrame"><Left>0.5cm</Left><Top>13.5cm</Top><Width>20cm</Width><Height>13.5cm</Height><Style><BackgroundColor>#FFFFFF</BackgroundColor><BorderColor>#CBD5E1</BorderColor><BorderWidth>1pt</BorderWidth></Style></Rectangle>
+          <Textbox Name="TableCaption"><Left>0.8cm</Left><Top>13.75cm</Top><Width>18cm</Width><Height>0.5cm</Height><Style><FontSize>13pt</FontSize><FontWeight>Bold</FontWeight><Color>#18304E</Color></Style><TextRuns><TextRun><Value>Grouped tablix, expressions, and cell spans</Value></TextRun></TextRuns></Textbox>
+          <Tablix Name="GroupedItems"><Left>0.8cm</Left><Top>14.5cm</Top><DataSetName>Items</DataSetName><TablixBody>
+            <TablixColumns><TablixColumn><Width>5.5cm</Width></TablixColumn><TablixColumn><Width>5.5cm</Width></TablixColumn><TablixColumn><Width>5.5cm</Width></TablixColumn></TablixColumns>
+            <TablixRows>
+              <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><ColSpan>3</ColSpan><CellContents><Textbox><Style><FontWeight>Bold</FontWeight><Color>#FFFFFF</Color><BackgroundColor>#18304E</BackgroundColor></Style><TextRuns><TextRun><Value>Category / item / amount (ColSpan=3)</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+              <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><Style><FontWeight>Bold</FontWeight></Style><TextRuns><TextRun><Value>="Category: " &amp; Fields!Category.Value</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell><TablixCell><CellContents><Textbox><Style><FontWeight>Bold</FontWeight></Style><TextRuns><TextRun><Value>="Rows: " &amp; CountRows()</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell><TablixCell><CellContents><Textbox><Style><FontWeight>Bold</FontWeight></Style><TextRuns><TextRun><Value>="Sum: " &amp; Sum(Fields!Amount.Value)</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+              <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><RowSpan>2</RowSpan><CellContents><Textbox><TextRuns><TextRun><Value>=Fields!Name.Value</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell><TablixCell><CellContents><Textbox><Visibility><Hidden>=Parameters!HideDetails.Value</Hidden></Visibility><TextRuns><TextRun><Value>="Amount: " &amp; Fields!Amount.Value</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Average: " &amp; Avg(Fields!Amount.Value)</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+              <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Item: " &amp; Fields!Name.Value</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Amount: " &amp; Fields!Amount.Value</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Average: " &amp; Avg(Fields!Amount.Value)</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+              <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><ColSpan>2</ColSpan><CellContents><Textbox><Style><FontWeight>Bold</FontWeight></Style><TextRuns><TextRun><Value>="Subtotal = " &amp; Sum(Fields!Amount.Value)</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell><TablixCell><CellContents><Textbox><Style><FontWeight>Bold</FontWeight></Style><TextRuns><TextRun><Value>Group complete</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+            </TablixRows>
+          </TablixBody><TablixRowHierarchy><TablixMembers><TablixMember><KeepWithGroup>After</KeepWithGroup></TablixMember><TablixMember><Group Name="CategoryGroup"><GroupExpressions><GroupExpression>=Fields!Category.Value</GroupExpression></GroupExpressions></Group></TablixMember></TablixMembers></TablixRowHierarchy>
+          </Tablix>
+        </ReportItems>
+      </Body>
+      <PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight>
+    </ReportSection>
+  </ReportSections>
+</Report>

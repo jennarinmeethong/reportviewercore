@@ -12,7 +12,7 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] `IReportPageSource`/`ReportPageSourceAdapter` seam for legacy RPL/SPB pagination.
 - [x] Windows display adapter and opt-in legacy `RenderPortable` bridges.
 - [x] 117 regression tests, 56 content-complete RDLC fixtures, RID publish workflow, seven `2.0.0-preview.1` packages, samples, and migration docs.
-- [x] Feature-showcase console project exports every portable file type plus a manifest covering all positive canvas features, including the latest pagination, table-span, image-crop, and vector-clipping work.
+- [x] Feature-showcase console project exports every portable file type plus manifests covering all positive canvas and RDLC-engine showcase features, including pagination, table spans, image crop, vector clipping, grouping, aggregates, headers/footers, visibility, hyperlinks, embedded images, and charts.
 - [x] Preserve basic charts, rectangles, and lines placed inside tablix cells with cell-column and repeated-row offsets.
 - [x] Preserve bar/column/line/area/pie/doughnut chart semantics through the shared fixture and native backend output parts; unsupported Radar remains an explicit negative case.
 

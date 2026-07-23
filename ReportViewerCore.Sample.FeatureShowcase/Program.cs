@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Collections;
 using ReportViewerCore.Headless;
 using ReportViewerCore.Rendering;
 using ReportViewerCore.Rendering.Html;
@@ -86,7 +87,69 @@ var manifest = new
 };
 File.WriteAllText(Path.Combine(outputDirectory, "feature-showcase-manifest.json"), JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
 
+WriteRdlcShowcase(outputDirectory, bitmapRenderer, renderers);
+
 Console.WriteLine($"Wrote feature showcase outputs ({generatedFiles.Length} files) to {outputDirectory}");
+
+static void WriteRdlcShowcase(string outputDirectory, SkiaBitmapRenderer bitmapRenderer, HeadlessReportRenderer renderers)
+{
+	string sourcePath = Path.Combine(AppContext.BaseDirectory, "FeatureShowcase.rdlc");
+	string showcaseDirectory = Path.Combine(outputDirectory, "rdlc-feature-showcase");
+	Directory.CreateDirectory(showcaseDirectory);
+	File.Copy(sourcePath, Path.Combine(showcaseDirectory, "rdlc-feature-showcase.rdlc"), overwrite: true);
+
+	using var definition = File.OpenRead(sourcePath);
+	using var localReport = new LocalReport(new ReportViewerCore.Engine.RdlcReportEngine(), renderers, new SkiaImageResolver());
+	localReport.LoadReportDefinition(definition);
+	localReport.SetDataSources(new Dictionary<string, IEnumerable>
+	{
+		["Items"] = new[]
+		{
+			new ShowcaseRow("North", "Alpha", 12),
+			new ShowcaseRow("North", "Beta", 8),
+			new ShowcaseRow("South", "Gamma", 16),
+			new ShowcaseRow("South", "Delta", 5)
+		}
+	});
+	localReport.SetParameters(new Dictionary<string, object?>
+	{
+		["TargetUrl"] = "https://example.com/rdlc-feature-showcase",
+		["HideDetails"] = false
+	});
+
+	ReportDocument document = localReport.CreateDocument();
+	for (int pageIndex = 0; pageIndex < document.Pages.Count; pageIndex++)
+	{
+		ReportPage page = document.Pages[pageIndex];
+		RenderImage pageImage = bitmapRenderer.Render(page.Size, page.Render);
+		File.WriteAllBytes(Path.Combine(showcaseDirectory, $"rdlc-feature-showcase-page-{pageIndex + 1}.png"), pageImage.PngData.ToArray());
+	}
+
+	foreach (ReportOutputFormat format in Enum.GetValues<ReportOutputFormat>())
+	{
+		ReportOutput output = renderers.Render(document, new ReportRenderOptions(format));
+		File.WriteAllBytes(Path.Combine(showcaseDirectory, $"rdlc-feature-showcase.{output.FileExtension}"), output.Data.ToArray());
+	}
+
+	string[] files = Directory.GetFiles(showcaseDirectory).Select(Path.GetFileName).Where(name => name is not null).Cast<string>().Where(name => !name.EndsWith("manifest.json", StringComparison.OrdinalIgnoreCase)).Append("rdlc-feature-showcase-manifest.json").OrderBy(name => name, StringComparer.Ordinal).ToArray();
+	var manifest = new
+	{
+		Name = "ReportViewerCore constrained RDLC feature showcase",
+		Pages = document.Pages.Select((page, index) => new { Number = index + 1, page.Size.Width, page.Size.Height }).ToArray(),
+		OutputFormats = new[] { "png", "pdf", "html", "xlsx", "docx" },
+		Features = new[]
+		{
+			"RDLC page header and footer",
+			"Fields, parameters, string concatenation, CountRows, Sum, Avg, Min, and Max",
+			"Grouped tablix with sorting-ready data and ColSpan/RowSpan metadata",
+			"Conditional visibility and hyperlink action",
+			"Embedded image, rectangle, line, and nested report items",
+			"Bar, column, line, area, pie, and doughnut charts"
+		},
+		Files = files
+	};
+	File.WriteAllText(Path.Combine(showcaseDirectory, "rdlc-feature-showcase-manifest.json"), JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
+}
 
 static void DrawOverview(IRenderCanvas canvas, RenderImage image)
 {
@@ -149,3 +212,5 @@ static void DrawChartsAndClipping(IRenderCanvas canvas, RenderImage image)
 	canvas.DrawLine(new RenderPoint(-20, 850), new RenderPoint(180, 690), new RenderColor(170, 50, 50), 3);
 	canvas.DrawText("Visible portions remain inside the page in Skia, HTML, DOCX, and XLSX.", new RenderPoint(210, 760), new FontRequest("Arial", 12), RenderColor.Black);
 }
+
+file sealed record ShowcaseRow(string Category, string Name, decimal Amount);

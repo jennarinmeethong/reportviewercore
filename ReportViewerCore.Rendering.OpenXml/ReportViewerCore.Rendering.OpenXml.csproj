@@ -22,5 +22,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ReportViewerCore.Rendering.Abstractions\ReportViewerCore.Rendering.Abstractions.csproj" />
+    <ProjectReference Include="..\ReportViewerCore.Rendering.Skia\ReportViewerCore.Rendering.Skia.csproj" />
   </ItemGroup>
 </Project>

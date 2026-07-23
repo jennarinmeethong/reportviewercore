@@ -163,6 +163,7 @@ internal sealed class HtmlRenderCanvas : IRenderCanvas
 		float baseline = plotBottom - (0 - min) / range * plotHeight;
 		float slotWidth = (destination.Width - 8) / points.Count;
 		float columnWidth = MathF.Max(2, slotWidth * 0.65f);
+		FontRequest labelFont = font with { Size = MathF.Min(font.Size, 9) };
 		for (int index = 0; index < points.Count; index++)
 		{
 			RenderChartBar point = points[index];
@@ -171,7 +172,7 @@ internal sealed class HtmlRenderCanvas : IRenderCanvas
 			float y = MathF.Min(baseline, valueY);
 			float height = MathF.Max(2, MathF.Abs(baseline - valueY));
 			FillRectangle(new RenderRect(x, y, columnWidth, height), PieColor(color, index));
-			AppendText(point.Label, new RenderPoint(x, destination.Bottom - font.Size), font, color, TextDirection.LeftToRight, null);
+			AppendText(point.Label, new RenderPoint(CenterLabelX(point.Label, labelFont, x + columnWidth / 2, destination.X, destination.Right), destination.Bottom - labelFont.Size), labelFont, color, TextDirection.LeftToRight, null);
 			AppendText(point.Value.ToString("0.##", CultureInfo.InvariantCulture), new RenderPoint(x, y - 2), font, color, TextDirection.LeftToRight, null);
 		}
 	}
@@ -215,10 +216,18 @@ internal sealed class HtmlRenderCanvas : IRenderCanvas
 			_markup.Append("<polygon points=\"").Append(polygonPoints).Append("\" fill=\"").Append(Color(color)).Append("\" fill-opacity=\"0.35\" stroke=\"none\"/>");
 		}
 		_markup.Append("<polyline points=\"").Append(linePoints).Append("\" fill=\"none\" stroke=\"").Append(Color(color)).Append("\" stroke-width=\"").Append(Number(MathF.Max(1, font.Size / 10))).Append("\"/>");
+		FontRequest labelFont = font with { Size = MathF.Min(font.Size, 9) };
 		for (int index = 0; index < points.Count; index++)
 		{
-			AppendText(points[index].Label, new RenderPoint(coordinates[index].X - font.Size, plotBottom + font.Size), font, color, TextDirection.LeftToRight, null);
+			AppendText(points[index].Label, new RenderPoint(CenterLabelX(points[index].Label, labelFont, coordinates[index].X, destination.X, destination.Right), plotBottom + labelFont.Size), labelFont, color, TextDirection.LeftToRight, null);
 		}
+	}
+
+	private static float CenterLabelX(string label, FontRequest font, float centerX, float left, float right)
+	{
+		float estimatedWidth = MathF.Max(font.Size, label.Length * font.Size * 0.7f);
+		float maxX = MathF.Max(left, right - estimatedWidth);
+		return Math.Clamp(centerX - estimatedWidth / 2, left, maxX);
 	}
 
 	private void DrawPieChart(IReadOnlyList<RenderChartBar> points, RenderRect destination, FontRequest font, RenderColor color)
@@ -369,6 +378,7 @@ internal sealed class HtmlRenderCanvas : IRenderCanvas
 		{
 			element.Append(" writing-mode=\"tb\"");
 		}
+		element.Append('>');
 		string[] lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
 		if (lines.Length == 1)
 		{

@@ -1,5 +1,9 @@
 # Context
 
+## Acceptance showcase
+
+The FeatureShowcase console also renders a bundled RDLC definition into a separate seven-file directory: source RDLC, page PNG, PDF, HTML, XLSX, DOCX, and an engine feature manifest.
+
 ## Architecture
 
 The legacy solution contains a decompiled ReportViewer engine. Its headless and chart paths still use System.Drawing/GDI/Uniscribe, while WinForms is Windows-only. A v2 migration has started with a backend-neutral rendering boundary in `ReportViewerCore.Rendering.Abstractions` and a SkiaSharp/HarfBuzz implementation in `ReportViewerCore.Rendering.Skia`. The net10 WinForms compatibility assembly now contains the Windows-only `RplPortableDocumentAdapter`, which snapshots the internal v1 RPL page model into `IReportPageSource`; the opt-in WinForms portable bridge falls back to this adapter only when the constrained RDLC engine rejects the report.
@@ -33,5 +37,7 @@ Font policy is explicit: Skia uses platform family matching for ordinary request
 Resolved memory root: `C:\Codes\reportviewercore\.devbuddy`
 
 ## Next-session handoff
+
+DOCX/XLSX now place a page preview rasterized from the same Skia canvas as the PNG above their native Office semantic objects. This is the visible Office layout contract: preview image bytes must equal each corresponding PNG page, while hidden/off-viewport text, image, shape, hyperlink, and chart parts preserve OpenXML semantics and editability metadata.
 
 Use [`docs/cross-platform-v2-checklist.md`](../docs/cross-platform-v2-checklist.md) as the source of truth for completed work, remaining phases, verification commands, and Windows-only validation. The RPL/SPB adapter is compile-verified for net10 WinForms, and both legacy bridge samples now execute locally on Windows with semantic/page-count comparisons; the hosted `windows-latest` job remains the final independent confirmation. The next implementation priority is deeper RDLC member parity, followed by advanced renderer contracts.

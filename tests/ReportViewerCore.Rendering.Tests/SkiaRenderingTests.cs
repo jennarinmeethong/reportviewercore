@@ -232,6 +232,9 @@ public sealed class SkiaRenderingTests
 		html.Should().Contain("<section class=\"report-page\"").And.Contain("<text").And.Contain("&lt;Report&gt;").And.Contain("writing-mode=\"tb\"");
 		html.Should().Contain("href=\"https://example.com/docs\"").And.Contain("data:image/png;base64,cG5n");
 		html.Split("<section class=\"report-page\"").Length.Should().Be(3);
+		int svgStart = html.IndexOf("<svg", StringComparison.Ordinal);
+		int svgEnd = html.IndexOf("</svg>", svgStart, StringComparison.Ordinal);
+		XDocument.Parse(html.Substring(svgStart, svgEnd + "</svg>".Length - svgStart)).Root.Should().NotBeNull();
 	}
 
 	[Fact]
@@ -410,6 +413,8 @@ public sealed class SkiaRenderingTests
 			archive.GetEntry("xl/media/image1_1.png").Should().NotBeNull();
 			archive.GetEntry("xl/drawings/drawing1.xml").Should().NotBeNull();
 			archive.GetEntry("xl/worksheets/_rels/sheet1.xml.rels").Should().NotBeNull();
+			using var drawingReader = new StreamReader(archive.GetEntry("xl/drawings/drawing1.xml")!.Open());
+			drawingReader.ReadToEnd().Should().Contain("<xdr:pic").And.Contain("<xdr:blipFill").And.Contain("<xdr:spPr");
 		}
 
 		ReportOutput word = new WordOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
@@ -418,7 +423,37 @@ public sealed class SkiaRenderingTests
 		wordArchive.GetEntry("word/document.xml").Should().NotBeNull();
 		wordArchive.GetEntry("word/_rels/document.xml.rels").Should().NotBeNull();
 		using var imageDocumentReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
-		imageDocumentReader.ReadToEnd().Should().Contain("<anchor").And.Contain("xmlns=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\"").And.Contain("positionH").And.Contain("positionV").And.Contain("<posOffset>127000</posOffset>").And.Contain("<extent cx=\"304800\" cy=\"304800\"");
+		imageDocumentReader.ReadToEnd().Should().Contain("type=\"#_x0000_t75\"").And.Contain("style=\"position:absolute;left:10pt;top:10pt;width:24pt;height:24pt").And.Contain("imagedata").And.Contain("r:id=\"rId1\"");
+	}
+
+	[Fact]
+	public void Openxml_renderers_embed_matching_page_previews_for_visible_layout()
+	{
+		var report = new ReportDocument(new[]
+		{
+			new ReportPage(new RenderSize(160, 90), canvas =>
+			{
+				canvas.Clear(RenderColor.White);
+				canvas.FillRectangle(new RenderRect(0, 0, 160, 24), new RenderColor(24, 47, 78));
+				canvas.DrawText("Visual preview", new RenderPoint(12, 18), new FontRequest("Arial", 12, Bold: true), RenderColor.White);
+			})
+		});
+		using var bitmap = new SkiaBitmapRenderer();
+		byte[] expected = bitmap.Render(report.Pages[0].Size, report.Pages[0].Render).PngData.ToArray();
+
+		foreach ((IReportRenderer renderer, ReportOutputFormat format, string previewPath) in new[]
+		{
+			((IReportRenderer)new ExcelOpenXmlRenderer(), ReportOutputFormat.ExcelOpenXml, "xl/media/preview1.png"),
+			((IReportRenderer)new WordOpenXmlRenderer(), ReportOutputFormat.WordOpenXml, "word/media/preview1.png")
+		})
+		{
+			ReportOutput output = renderer.Render(report, new ReportRenderOptions(format));
+			using var archive = new ZipArchive(new MemoryStream(output.Data.ToArray()), ZipArchiveMode.Read);
+			using Stream stream = archive.GetEntry(previewPath)!.Open();
+			using var preview = new MemoryStream();
+			stream.CopyTo(preview);
+			preview.ToArray().Should().Equal(expected);
+		}
 	}
 
 	[Fact]
@@ -442,7 +477,7 @@ public sealed class SkiaRenderingTests
 		ReportOutput word = new WordOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
 		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
 		using var documentReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
-		documentReader.ReadToEnd().Should().Contain("<posOffset>0</posOffset>").And.Contain("<extent cx=\"254000\" cy=\"127000\"").And.Contain("<srcRect l=\"33333\" t=\"25000\"");
+		documentReader.ReadToEnd().Should().Contain("style=\"position:absolute;left:0pt;top:0pt;width:20pt;height:10pt").And.Contain("cropleft=\"0.33333\"").And.Contain("croptop=\"0.25\"");
 	}
 
 	[Fact]

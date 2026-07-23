@@ -1,5 +1,14 @@
 # DecisionLog
 
+## Showcase acceptance
+
+- The feature showcase keeps direct canvas acceptance files and RDLC-engine acceptance files in separate output scopes. This preserves the existing seven-file smoke contract while giving users a source RDLC plus PNG/PDF/HTML/XLSX/DOCX exports and a manifest for the constrained engine path.
+- Office visual fidelity takes precedence over attempting to reproduce an absolute report canvas with visible VML/DrawingML and worksheet cells. DOCX/XLSX therefore expose a Skia-rasterized full-page preview as the visible layer, while native OpenXML text, images, shapes, charts, and hyperlinks remain in hidden or off-viewport semantic layers.
+
+## Windows diagnostics
+
+- The WinForms v2 sample catches startup/UI-thread exceptions and writes the full exception to `%TEMP%\ReportViewerCore.WinForms.V2.crash.log`; a WinExe otherwise surfaces only the opaque CLR `0xe0434352` application-error dialog.
+
 ## Decisions
 
 - Supported sibling row-group trees may omit a static leading header; row-template indexing treats leading and trailing static members as independent optional rows while preserving the explicit sibling layout contract.
@@ -41,7 +50,7 @@
 - Basic `FillRectangle`, `DrawRectangle`, and `DrawLine` operations are preserved in OpenXML: Excel uses DrawingML shape parts, while Word uses a VML compatibility fallback. This closes the basic-shape gap without pretending advanced vector/RPL parity exists.
 - OpenXML line shapes retain their original start/end points internally; Excel emits DrawingML flips and Word emits VML `from`/`to` points so reverse-direction lines do not collapse to a bounding-box diagonal.
 - DOCX text preserves the backend-neutral horizontal baseline offset as a Word paragraph left indent in twips; vertical/floating absolute layout remains deferred until the document model can represent it without cumulative paragraph-spacing errors.
-- DOCX images and charts use page-relative DrawingML floating anchors with explicit EMU position offsets and extents; text remains paragraph-flow content.
+- DOCX text uses page-relative VML text boxes and images use page-relative VML `v:shape`/`v:imagedata`; charts retain DrawingML floating anchors with explicit EMU position offsets and extents. This combination matches Word's accepted package contracts while preserving RDLC page coordinates.
 - DOCX page boundaries use a `nextPage` section break carrying that page's own `pgSz`; this preserves variable `ReportDocument` page sizes while keeping XLSX's one-worksheet-per-page mapping. OpenXML images that cross a page boundary are clipped to the visible destination and retain source crop percentages; text, chart, and vector clipping remain separate semantics until the shared contract can represent them accurately.
 - OpenXML vector rectangles are clipped by intersection and line segments by page-rectangle segment clipping at capture time; the resulting geometry is shared by DOCX VML and XLSX DrawingML so their page boundaries do not diverge. Text and chart clipping remain separate until their semantic bounds are modeled.
 - The feature showcase is a separate console acceptance project rather than changing the seven-file smoke contract. It exports exactly two page PNGs, PDF, HTML, XLSX, DOCX, and a manifest, and CI runs/validates it on executable RIDs while retaining the existing smoke sample for the smaller gate.
@@ -98,5 +107,12 @@
 - A nested member tree with a single static wrapper around a dynamic child may use the recursive renderer when the shape-derived row-template count matches exactly; otherwise it retains the linear fallback. This keeps root-level totals outside group scopes and avoids guessing arbitrary member layouts.
 - Shape-matched recursive member trees also support a static wrapper containing nested dynamic siblings with scoped leading/trailing static rows; the renderer still requires an exact row-template count and does not claim unrestricted SSRS member-layout parity.
 - Semantic tablix cells are an additive `IRenderCanvas.DrawTableCell` contract with a default text fallback, so existing renderers remain compatible while OpenXML captures bounds and emits bounded `ColSpan`/`RowSpan` merge ranges. The RDLC fixture `merged-cell-table.rdlc` proves the engine-to-XLSX path; true pagination remains separate work.
-- The DOCX floating-anchor change is limited to image/chart DrawingML wrappers: relationship payloads and backend-neutral destinations remain unchanged, while focused XML assertions verify page-relative X/Y offsets and EMU extents.
+- The DOCX page-layout fix uses page-relative VML text boxes for text and VML `v:shape`/`v:imagedata` images, while charts remain floating DrawingML anchors; this preserves RDLC coordinates and produces packages Microsoft Word opens successfully. Focused XML assertions cover positioned text, image relationships, and crop values.
+- RDLC OpenXML chart exports must not emit a second text-based chart legend over the native chart anchor. Keep chart title/category/value semantics in hidden Excel columns for accessibility and regression inspection, while native chart parts own the visible chart.
+- Word OpenXML page content is captured as one positioned page paragraph: text and images use page-relative VML, while charts remain floating DrawingML. This preserves RDLC coordinates and prevents Word's normal paragraph flow from reordering body, header/footer, and chart content.
+- Dense column and line chart labels are centered within their chart slots with bounded approximate text width in Skia and HTML; this removes the visible `GammaDelta` collision in narrow RDLC chart items without changing the native OpenXML chart contract.
 - Font handling stays caller-owned and backend-specific: Skia may use platform fallback or an explicitly registered file, unknown families fail closed, and OpenXML preserves family/style metadata without silently embedding or substituting font data.
+- Microsoft Office validation exposed namespace-sensitive package contracts: SpreadsheetDrawing charts require `xdr:xfrm`, and pictures require `xdr:pic`, `xdr:blipFill`, and `xdr:spPr`; incorrect DrawingML/picture namespaces can make Excel refuse to open an otherwise ZIP-valid workbook.
+- Showcase acceptance now includes a cross-format semantic matrix: stable RDLC text/chart markers must be present in HTML, PDF, DOCX XML/chart parts, and XLSX worksheet/chart parts, while page/worksheet counts must agree with the manifest.
+- HTML showcase SVG is treated as an XML package contract, not only a substring result; each emitted `<svg>` is parsed before acceptance so missing tag delimiters cannot pass as readable HTML.
+- The reusable `validate_cross_format.py` gate uses bundled `pypdf`/Pillow plus standard OOXML parsing to compare 33 stable RDLC markers across HTML, PDF, DOCX, XLSX, and PNG page/size evidence; keep markers stable when extending the showcase.

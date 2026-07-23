@@ -9,7 +9,14 @@ Index project-local tools here. Each entry should include purpose, runtime, comm
 - Command: `python3 .devbuddy/tools/validate_v2_artifacts.py --packages artifacts/nuget-v2-loop-hyperlink-whitespace --smoke artifacts/cross-platform-loop-hyperlink-whitespace`
 - Expected output: package archive count and smoke artifact count, or a non-zero exit with the failing archive/path.
 - Feature showcase command: `python3 .devbuddy/tools/validate_v2_artifacts.py --showcase artifacts/feature-showcase`
-- Expected output: exactly seven showcase files (two PNG pages, PDF, HTML, XLSX, DOCX, and a feature manifest), with required feature markers and package parts.
+- Expected output: exactly seven direct showcase files plus seven files under `rdlc-feature-showcase/` (RDLC source, page PNG, PDF, HTML, XLSX, DOCX, and manifest), with required feature markers and package parts.
+
+## `validate_cross_format.py`
+
+- Purpose: compare the RDLC showcase's stable semantic markers and page mapping across HTML, PDF, DOCX, XLSX, and PNG outputs; parse every emitted SVG, validate readable PNG dimensions, and require DOCX/XLSX page-preview images to match the corresponding PNG bytes.
+- Runtime: bundled Python with `pypdf` and `Pillow` from the workspace dependency loader.
+- Command: `python3 .devbuddy/tools/validate_cross_format.py artifacts/feature-showcase/rdlc-feature-showcase`
+- Expected output: one passing line with four semantic formats, matching page counts, and the marker count; otherwise a non-zero exit identifies the mismatched format or malformed package.
 
 ## Test result artifacts
 
