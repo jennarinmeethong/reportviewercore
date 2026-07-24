@@ -156,6 +156,14 @@ public sealed class RdlcReportEngine
 			string? dataSetName = tablix.Element(ns + "DataSetName")?.Value.Trim();
 			IReadOnlyList<object?> rows = SortRows(tablix, ns, ResolveRows(dataSetName, context), context).ToArray();
 			float contentTop = 0;
+			XElement noRowsTemplate = rowTemplates[^1];
+			IReadOnlyList<XElement> hierarchyFirstGroupMembers = ReadHierarchyFirstGroupMembers(tablix, ns, rowTemplates);
+			if (hierarchyFirstGroupMembers.Count > 0)
+			{
+				contentTop = RenderHierarchyFirstMemberSequence(placements, images, charts, shapes, rowTemplates, hierarchyFirstGroupMembers, ns, columnWidths, contentTop, rows, context, embeddedImages, left, top, pageSize, 0);
+			}
+			else
+			{
 			XElement? headerTemplate = rowTemplates.FirstOrDefault(row => ExtractTexts(row, ns).Any(text => !IsExpression(text.Value)));
 			if (headerTemplate is not null)
 			{
@@ -163,7 +171,7 @@ public sealed class RdlcReportEngine
 				contentTop += ReadRowHeight(headerTemplate, ns);
 			}
 
-			XElement noRowsTemplate = headerTemplate ?? rowTemplates[^1];
+			noRowsTemplate = headerTemplate ?? rowTemplates[^1];
 			IReadOnlyList<XElement> siblingGroupMembers = ReadSupportedSiblingGroupMembers(tablix, ns, rowTemplates);
 			if (siblingGroupMembers.Count > 0)
 			{
@@ -172,7 +180,7 @@ public sealed class RdlcReportEngine
 				XElement? siblingGroupFooter = ReadSupportedSiblingGroupFooter(tablix, ns, rowTemplates);
 				if (siblingGroupFooter is not null && rows.Count > 0)
 				{
-					if (HasGroupBreakAfterGroup(siblingGroupMembers[^1], ns))
+					if (HasGroupBreakAfterGroup(siblingGroupMembers[^1], ns, context, rows[^1], rows))
 					{
 						contentTop = MoveToNextPageTop(top, contentTop, pageSize.Height);
 					}
@@ -201,8 +209,8 @@ public sealed class RdlcReportEngine
 				foreach (GroupScope groupScope in GroupRows(tablix, ns, rows, context))
 				{
 					IReadOnlyList<object?> scopeRows = groupScope.Rows;
-					if (scopeRows.Count > 0 && (groupPageBreakLevels.StartLevels.Any(level => !HasSameGroupPrefix(groupScope, previousGroupScope, level))
-						|| previousGroupScope is not null && groupPageBreakLevels.BoundaryLevels.Any(level => !HasSameGroupPrefix(groupScope, previousGroupScope, level))))
+					if (scopeRows.Count > 0 && (groupPageBreakLevels.StartLevels.Any(level => !IsGroupPageBreakDisabled(level.Value, groupScope, level.Key, context) && !HasSameGroupPrefix(groupScope, previousGroupScope, level.Key))
+						|| previousGroupScope is not null && groupPageBreakLevels.BoundaryLevels.Any(level => !IsGroupPageBreakDisabled(level.Value, groupScope, level.Key, context) && !HasSameGroupPrefix(groupScope, previousGroupScope, level.Key))))
 					{
 						contentTop = MoveToNextPageTop(top, contentTop, pageSize.Height);
 					}
@@ -239,6 +247,7 @@ public sealed class RdlcReportEngine
 						previousGroupScope = groupScope;
 					}
 				}
+			}
 			}
 
 			string noRowsMessage = tablix.Element(ns + "NoRowsMessage")?.Value.Trim() ?? string.Empty;
@@ -566,8 +575,8 @@ public sealed class RdlcReportEngine
 
 	private static GroupPageBreakLevels ReadGroupPageBreakLevels(XElement tablix, XNamespace ns)
 	{
-		var boundaryLevels = new HashSet<int>();
-		var startLevels = new HashSet<int>();
+		var boundaryLevels = new Dictionary<int, string?>();
+		var startLevels = new Dictionary<int, string?>();
 		XElement? members = tablix.Element(ns + "TablixRowHierarchy")?.Element(ns + "TablixMembers");
 		int level = 0;
 		if (members is not null)
@@ -578,7 +587,7 @@ public sealed class RdlcReportEngine
 		return new GroupPageBreakLevels(boundaryLevels, startLevels);
 	}
 
-	private static void ReadGroupPageBreakLevels(XElement members, XNamespace ns, ISet<int> boundaryLevels, ISet<int> startLevels, ref int level)
+	private static void ReadGroupPageBreakLevels(XElement members, XNamespace ns, IDictionary<int, string?> boundaryLevels, IDictionary<int, string?> startLevels, ref int level)
 	{
 		foreach (XElement member in members.Elements(ns + "TablixMember"))
 		{
@@ -588,16 +597,17 @@ public sealed class RdlcReportEngine
 			if (expressionCount > 0)
 			{
 				string breakLocation = group?.Element(ns + "PageBreak")?.Element(ns + "BreakLocation")?.Value.Trim() ?? string.Empty;
+				string? disabledExpression = group?.Element(ns + "PageBreak")?.Element(ns + "Disabled")?.Value.Trim();
 				if (string.Equals(breakLocation, "Between", StringComparison.OrdinalIgnoreCase)
 					|| string.Equals(breakLocation, "End", StringComparison.OrdinalIgnoreCase)
 					|| string.Equals(breakLocation, "StartAndEnd", StringComparison.OrdinalIgnoreCase))
 				{
-					boundaryLevels.Add(level + expressionCount - 1);
+					boundaryLevels[level + expressionCount - 1] = disabledExpression;
 				}
 				if (string.Equals(breakLocation, "Start", StringComparison.OrdinalIgnoreCase)
 					|| string.Equals(breakLocation, "StartAndEnd", StringComparison.OrdinalIgnoreCase))
 				{
-					startLevels.Add(level + expressionCount - 1);
+					startLevels[level + expressionCount - 1] = disabledExpression;
 				}
 
 				level += expressionCount;
@@ -690,7 +700,7 @@ public sealed class RdlcReportEngine
 		{
 			XElement groupMember = groupMembers[groupMemberIndex];
 			contentTop = RenderGroupMemberBranch(placements, images, charts, shapes, rowTemplates, groupMember, ns, columnWidths, contentTop, rows, context, embeddedImages, left, top, pageSize, templateIndex);
-			if (groupMemberIndex < groupMembers.Count - 1 && HasGroupBreakAfterGroup(groupMember, ns))
+			if (groupMemberIndex < groupMembers.Count - 1 && HasGroupBreakAfterGroup(groupMember, ns, context, rows.FirstOrDefault(), rows))
 			{
 				contentTop = MoveToNextPageTop(top, contentTop, pageSize.Height);
 			}
@@ -699,6 +709,79 @@ public sealed class RdlcReportEngine
 
 		return contentTop;
 	}
+
+	private static IReadOnlyList<XElement> ReadHierarchyFirstGroupMembers(XElement tablix, XNamespace ns, IReadOnlyList<XElement> rowTemplates)
+	{
+		XElement[] members = tablix.Element(ns + "TablixRowHierarchy")?.Element(ns + "TablixMembers")?.Elements(ns + "TablixMember").ToArray() ?? Array.Empty<XElement>();
+		if (members.Length == 0
+			|| !members.Any(member => MemberContainsGroup(member, ns))
+			|| ReadSupportedSiblingGroupMembers(tablix, ns, rowTemplates).Count > 0
+			|| CountMemberTemplates(members, ns) != rowTemplates.Count
+			|| members.Any(member => !IsSupportedGroupBranch(member, ns)))
+		{
+			return Array.Empty<XElement>();
+		}
+
+		return members;
+	}
+
+	private static float RenderHierarchyFirstMemberSequence(List<PlacedText> placements, List<PlacedImage> images, List<PlacedChart> charts, List<PlacedShape> shapes, IReadOnlyList<XElement> rowTemplates, IReadOnlyList<XElement> members, XNamespace ns, IReadOnlyList<float> columnWidths, float contentTop, IReadOnlyList<object?> scopeRows, RdlcDataContext context, IReadOnlyDictionary<string, RenderImageRequest> embeddedImages, float left, float top, RenderSize pageSize, int templateIndex)
+	{
+		for (int memberIndex = 0; memberIndex < members.Count; memberIndex++)
+		{
+			XElement member = members[memberIndex];
+			contentTop = RenderHierarchyFirstMember(placements, images, charts, shapes, rowTemplates, member, ns, columnWidths, contentTop, scopeRows, context, embeddedImages, left, top, pageSize, templateIndex);
+			if (memberIndex < members.Count - 1 && HasGroupBreakAfterGroup(member, ns, context, scopeRows.FirstOrDefault(), scopeRows))
+			{
+				contentTop = MoveToNextPageTop(top, contentTop, pageSize.Height);
+			}
+			templateIndex += CountMemberTemplates(member, ns);
+		}
+
+		return contentTop;
+	}
+
+	private static float RenderHierarchyFirstMember(List<PlacedText> placements, List<PlacedImage> images, List<PlacedChart> charts, List<PlacedShape> shapes, IReadOnlyList<XElement> rowTemplates, XElement member, XNamespace ns, IReadOnlyList<float> columnWidths, float contentTop, IReadOnlyList<object?> scopeRows, RdlcDataContext context, IReadOnlyDictionary<string, RenderImageRequest> embeddedImages, float left, float top, RenderSize pageSize, int templateIndex)
+	{
+		XElement template = rowTemplates[templateIndex];
+		XElement[] children = member.Element(ns + "TablixMembers")?.Elements(ns + "TablixMember").ToArray() ?? Array.Empty<XElement>();
+		string[] expressions = ReadDirectGroupExpressions(member, ns).ToArray();
+		if (expressions.Length == 0)
+		{
+			AddRow(placements, images, charts, shapes, template, ns, columnWidths, contentTop, scopeRows.FirstOrDefault(), context, embeddedImages, scopeRows, left, top);
+			contentTop += ReadRowHeight(template, ns);
+			return children.Length == 0
+				? contentTop
+				: RenderHierarchyFirstMemberSequence(placements, images, charts, shapes, rowTemplates, children, ns, columnWidths, contentTop, scopeRows, context, embeddedImages, left, top, pageSize, templateIndex + 1);
+		}
+
+		GroupScope? previousGroupScope = null;
+		foreach (GroupScope groupScope in GroupRows(expressions, scopeRows, context))
+		{
+			if (groupScope.Rows.Count == 0)
+			{
+				continue;
+			}
+			if (HasGroupBreakAtStart(member, ns, context, groupScope.Rows[0], groupScope.Rows) || (previousGroupScope is not null && HasGroupBreakBeforeNext(member, ns, context, groupScope.Rows[0], groupScope.Rows)))
+			{
+				contentTop = MoveToNextPageTop(top, contentTop, pageSize.Height);
+			}
+
+			AddRow(placements, images, charts, shapes, template, ns, columnWidths, contentTop, groupScope.Rows[0], context, embeddedImages, groupScope.Rows, left, top);
+			contentTop += ReadRowHeight(template, ns);
+			if (children.Length > 0)
+			{
+				contentTop = RenderHierarchyFirstMemberSequence(placements, images, charts, shapes, rowTemplates, children, ns, columnWidths, contentTop, groupScope.Rows, context, embeddedImages, left, top, pageSize, templateIndex + 1);
+			}
+			previousGroupScope = groupScope;
+		}
+
+		return contentTop;
+	}
+
+	private static int CountMemberTemplates(IEnumerable<XElement> members, XNamespace ns) => members.Sum(member => CountMemberTemplates(member, ns));
+
+	private static int CountMemberTemplates(XElement member, XNamespace ns) => 1 + (member.Element(ns + "TablixMembers")?.Elements(ns + "TablixMember").Sum(child => CountMemberTemplates(child, ns)) ?? 0);
 
 	private static bool HasLeadingStaticSiblingMember(XElement tablix, XNamespace ns)
 	{
@@ -727,7 +810,7 @@ public sealed class RdlcReportEngine
 			{
 				XElement child = children[childIndex];
 				contentTop = RenderGroupMemberBranch(placements, images, charts, shapes, rowTemplates, child, ns, columnWidths, contentTop, scopeRows, context, embeddedImages, left, top, pageSize, childTemplateIndex);
-				if (childIndex < children.Length - 1 && HasGroupBreakAfterGroup(child, ns))
+				if (childIndex < children.Length - 1 && HasGroupBreakAfterGroup(child, ns, context, scopeRows.FirstOrDefault(), scopeRows))
 				{
 					contentTop = MoveToNextPageTop(top, contentTop, pageSize.Height);
 				}
@@ -747,7 +830,7 @@ public sealed class RdlcReportEngine
 				{
 					continue;
 				}
-				if (HasGroupBreakAtStart(member, ns) || (previousGroupScope is not null && HasGroupBreakBeforeNext(member, ns)))
+				if (HasGroupBreakAtStart(member, ns, context, groupScope.Rows[0], groupScope.Rows) || (previousGroupScope is not null && HasGroupBreakBeforeNext(member, ns, context, groupScope.Rows[0], groupScope.Rows)))
 				{
 					contentTop = MoveToNextPageTop(top, contentTop, pageSize.Height);
 				}
@@ -773,7 +856,7 @@ public sealed class RdlcReportEngine
 				{
 					continue;
 				}
-				if (HasGroupBreakAtStart(member, ns) || (previousStaticChildGroup is not null && HasGroupBreakBeforeNext(member, ns)))
+				if (HasGroupBreakAtStart(member, ns, context, groupScope.Rows[0], groupScope.Rows) || (previousStaticChildGroup is not null && HasGroupBreakBeforeNext(member, ns, context, groupScope.Rows[0], groupScope.Rows)))
 				{
 					contentTop = MoveToNextPageTop(top, contentTop, pageSize.Height);
 				}
@@ -807,7 +890,7 @@ public sealed class RdlcReportEngine
 			{
 				continue;
 			}
-			if (HasGroupBreakAtStart(member, ns) || (branchPreviousGroupScope is not null && HasGroupBreakBeforeNext(member, ns)))
+			if (HasGroupBreakAtStart(member, ns, context, groupScope.Rows[0], groupScope.Rows) || (branchPreviousGroupScope is not null && HasGroupBreakBeforeNext(member, ns, context, groupScope.Rows[0], groupScope.Rows)))
 			{
 				contentTop = MoveToNextPageTop(top, contentTop, pageSize.Height);
 			}
@@ -819,7 +902,7 @@ public sealed class RdlcReportEngine
 			{
 				XElement child = children[childIndex];
 				contentTop = RenderGroupMemberBranch(placements, images, charts, shapes, rowTemplates, child, ns, columnWidths, contentTop, groupScope.Rows, context, embeddedImages, left, top, pageSize, childTemplateIndex);
-				if (childIndex < children.Length - 1 && HasGroupBreakAfterGroup(child, ns))
+				if (childIndex < children.Length - 1 && HasGroupBreakAfterGroup(child, ns, context, groupScope.Rows[0], groupScope.Rows))
 				{
 					contentTop = MoveToNextPageTop(top, contentTop, pageSize.Height);
 				}
@@ -890,25 +973,51 @@ public sealed class RdlcReportEngine
 			|| string.Equals(value, "End", StringComparison.OrdinalIgnoreCase);
 	}
 
-	private static bool HasGroupBreakAtStart(XElement member, XNamespace ns)
+	private static bool HasGroupBreakAtStart(XElement member, XNamespace ns, RdlcDataContext context, object? dataRow, IReadOnlyList<object?> scopeRows)
 	{
+		if (IsGroupPageBreakDisabled(member, ns, context, dataRow, scopeRows))
+		{
+			return false;
+		}
 		string value = member.Element(ns + "Group")?.Element(ns + "PageBreak")?.Element(ns + "BreakLocation")?.Value.Trim() ?? string.Empty;
 		return string.Equals(value, "Start", StringComparison.OrdinalIgnoreCase) || string.Equals(value, "StartAndEnd", StringComparison.OrdinalIgnoreCase);
 	}
 
-	private static bool HasGroupBreakBeforeNext(XElement member, XNamespace ns)
+	private static bool HasGroupBreakBeforeNext(XElement member, XNamespace ns, RdlcDataContext context, object? dataRow, IReadOnlyList<object?> scopeRows)
 	{
+		if (IsGroupPageBreakDisabled(member, ns, context, dataRow, scopeRows))
+		{
+			return false;
+		}
 		string value = member.Element(ns + "Group")?.Element(ns + "PageBreak")?.Element(ns + "BreakLocation")?.Value.Trim() ?? string.Empty;
 		return string.Equals(value, "Between", StringComparison.OrdinalIgnoreCase)
 			|| string.Equals(value, "End", StringComparison.OrdinalIgnoreCase)
 			|| string.Equals(value, "StartAndEnd", StringComparison.OrdinalIgnoreCase);
 	}
 
-	private static bool HasGroupBreakAfterGroup(XElement member, XNamespace ns)
+	private static bool HasGroupBreakAfterGroup(XElement member, XNamespace ns, RdlcDataContext context, object? dataRow, IReadOnlyList<object?> scopeRows)
 	{
+		if (IsGroupPageBreakDisabled(member, ns, context, dataRow, scopeRows))
+		{
+			return false;
+		}
 		string value = member.Element(ns + "Group")?.Element(ns + "PageBreak")?.Element(ns + "BreakLocation")?.Value.Trim() ?? string.Empty;
 		return string.Equals(value, "End", StringComparison.OrdinalIgnoreCase) || string.Equals(value, "StartAndEnd", StringComparison.OrdinalIgnoreCase);
 	}
+
+	private static bool IsGroupPageBreakDisabled(XElement member, XNamespace ns, RdlcDataContext context, object? dataRow, IReadOnlyList<object?> scopeRows) =>
+		IsGroupPageBreakDisabled(member.Element(ns + "Group")?.Element(ns + "PageBreak")?.Element(ns + "Disabled")?.Value.Trim(), dataRow, scopeRows, context);
+
+	private static bool IsGroupPageBreakDisabled(string? expression, GroupScope groupScope, int level, RdlcDataContext context)
+	{
+		IReadOnlyList<object?> scopeRows = groupScope.PrefixRows.Count > level ? groupScope.PrefixRows[level] : groupScope.Rows;
+		return IsGroupPageBreakDisabled(expression, scopeRows.FirstOrDefault(), scopeRows, context);
+	}
+
+	private static bool IsGroupPageBreakDisabled(string? expression, object? dataRow, IReadOnlyList<object?> scopeRows, RdlcDataContext context) =>
+		!string.IsNullOrWhiteSpace(expression)
+		&& bool.TryParse(ResolveValue(expression, dataRow, context, scopeRows), out bool disabled)
+		&& disabled;
 
 	private static int CountGroupMemberTemplates(XElement member, XNamespace ns)
 	{
@@ -1024,7 +1133,7 @@ public sealed class RdlcReportEngine
 	}
 
 	private sealed record GroupScope(IReadOnlyList<object?> Rows, IReadOnlyList<string> Keys, IReadOnlyList<IReadOnlyList<object?>> PrefixRows);
-	private sealed record GroupPageBreakLevels(IReadOnlySet<int> BoundaryLevels, IReadOnlySet<int> StartLevels);
+	private sealed record GroupPageBreakLevels(IReadOnlyDictionary<int, string?> BoundaryLevels, IReadOnlyDictionary<int, string?> StartLevels);
 	private readonly record struct GroupPrefixKey(int Level, IReadOnlyList<string> Keys);
 
 	private sealed class GroupPrefixKeyComparer : IEqualityComparer<GroupPrefixKey>

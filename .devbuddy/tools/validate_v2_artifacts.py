@@ -155,20 +155,30 @@ def validate_showcase(directory: Path) -> None:
 
 
 def validate_rdlc_showcase(directory: Path) -> None:
+    if not directory.is_dir():
+        fail(f"RDLC feature showcase directory does not exist: {directory}")
+
+    try:
+        manifest = json.loads((directory / "rdlc-feature-showcase-manifest.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        fail(f"RDLC feature showcase manifest is invalid: {error}")
+    page_count = len(manifest.get("Pages", []))
+    if page_count == 0:
+        fail("RDLC feature showcase manifest contains no pages")
+    page_files = {f"rdlc-feature-showcase-page-{index}.png" for index in range(1, page_count + 1)}
     expected = {
         "rdlc-feature-showcase.rdlc",
-        "rdlc-feature-showcase-page-1.png",
         "rdlc-feature-showcase.pdf",
         "rdlc-feature-showcase.html",
         "rdlc-feature-showcase.xlsx",
         "rdlc-feature-showcase.docx",
         "rdlc-feature-showcase-manifest.json",
-    }
-    if not directory.is_dir():
-        fail(f"RDLC feature showcase directory does not exist: {directory}")
+    } | page_files
     files = {path.name for path in directory.iterdir() if path.is_file()}
     if files != expected:
         fail(f"RDLC feature showcase files differ; missing={sorted(expected - files)}, extra={sorted(files - expected)}")
+    if set(manifest.get("Files", [])) != expected:
+        fail("RDLC feature showcase manifest does not enumerate the exact output files")
 
     try:
         root = ET.parse(directory / "rdlc-feature-showcase.rdlc").getroot()
@@ -176,13 +186,6 @@ def validate_rdlc_showcase(directory: Path) -> None:
         fail(f"RDLC feature showcase definition is invalid: {error}")
     if root.tag.rsplit("}", 1)[-1] != "Report":
         fail("RDLC feature showcase definition has an unexpected root")
-
-    try:
-        manifest = json.loads((directory / "rdlc-feature-showcase-manifest.json").read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        fail(f"RDLC feature showcase manifest is invalid: {error}")
-    if set(manifest.get("Files", [])) != expected:
-        fail("RDLC feature showcase manifest does not enumerate the exact output files")
     if set(manifest.get("OutputFormats", [])) != {"png", "pdf", "html", "xlsx", "docx"}:
         fail("RDLC feature showcase manifest does not enumerate every portable output format")
     features = " ".join(manifest.get("Features", []))
@@ -190,8 +193,9 @@ def validate_rdlc_showcase(directory: Path) -> None:
         if marker.lower() not in features.lower():
             fail(f"RDLC feature showcase manifest is missing feature marker: {marker}")
 
-    if (directory / "rdlc-feature-showcase-page-1.png").read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
-        fail("RDLC feature showcase PNG is invalid")
+    for name in page_files:
+        if (directory / name).read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
+            fail(f"RDLC feature showcase PNG is invalid: {name}")
     if (directory / "rdlc-feature-showcase.pdf").read_bytes()[:5] != b"%PDF-":
         fail("RDLC feature showcase PDF is invalid")
     validate_html_svg(directory / "rdlc-feature-showcase.html", "RDLC feature showcase")

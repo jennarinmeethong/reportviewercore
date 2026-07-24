@@ -507,6 +507,128 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
+	public void Openxml_renderers_clip_text_and_charts_to_page_bounds()
+	{
+		var points = new[] { new RenderChartBar("Visible", 1) };
+		var report = new ReportDocument(new[]
+		{
+			new ReportPage(new RenderSize(20, 10), canvas =>
+			{
+				canvas.DrawText("Partially visible text", new RenderPoint(-2, 6), new FontRequest("Arial", 4), RenderColor.Black);
+				canvas.DrawText("Off-page text", new RenderPoint(24, 6), new FontRequest("Arial", 4), RenderColor.Black);
+				canvas.DrawTableCell("Clipped table cell", new RenderPoint(15, 9), new RenderRect(14, 6, 12, 8), new FontRequest("Arial", 4), RenderColor.Black, columnSpan: 2, rowSpan: 2);
+				canvas.DrawChart(RenderChartType.Column, "Clipped chart", points, new RenderRect(14, 6, 12, 8), new FontRequest("Arial", 4), RenderColor.Black);
+				canvas.DrawChart(RenderChartType.Column, "Off-page chart", points, new RenderRect(24, 1, 8, 6), new FontRequest("Arial", 4), RenderColor.Black);
+			})
+		});
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using (var archive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read))
+		{
+			using var sheetReader = new StreamReader(archive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+			string sheet = sheetReader.ReadToEnd();
+			sheet.Should().Contain("Partially visible text").And.Contain("Clipped table cell").And.NotContain("Off-page text").And.NotContain("Off-page chart");
+			archive.Entries.Count(entry => entry.FullName.StartsWith("xl/charts/", StringComparison.Ordinal)).Should().Be(1);
+			using var drawingReader = new StreamReader(archive.GetEntry("xl/drawings/drawing1.xml")!.Open());
+			drawingReader.ReadToEnd().Should().Contain("<a:ext cx=\"76200\" cy=\"50800\"");
+		}
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var documentReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		string document = documentReader.ReadToEnd();
+		document.Should().Contain("Partially visible text").And.Contain("left:14pt;top:6pt;width:6pt;height:4pt").And.NotContain("Off-page text").And.NotContain("Off-page chart").And.Contain("cx=\"76200\" cy=\"50800\"");
+		wordArchive.Entries.Count(entry => entry.FullName.StartsWith("word/charts/", StringComparison.Ordinal)).Should().Be(1);
+	}
+
+	[Fact]
+	public void Openxml_renderers_clip_hyperlinks_to_page_bounds()
+	{
+		var report = new ReportDocument(new[]
+		{
+			new ReportPage(new RenderSize(20, 10), canvas =>
+			{
+				canvas.DrawHyperlink("Partially visible link", new RenderPoint(-2, 6), new FontRequest("Arial", 4), RenderColor.Black, "https://example.com/partially-visible-link");
+				canvas.DrawHyperlink("Off-page link", new RenderPoint(24, 6), new FontRequest("Arial", 4), RenderColor.Black, "https://example.com/off-page-link");
+			})
+		});
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using (var archive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read))
+		{
+			using var relationshipReader = new StreamReader(archive.GetEntry("xl/worksheets/_rels/sheet1.xml.rels")!.Open());
+			relationshipReader.ReadToEnd().Should().Contain("https://example.com/partially-visible-link").And.NotContain("https://example.com/off-page-link");
+			using var sheetReader = new StreamReader(archive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+			sheetReader.ReadToEnd().Should().Contain("Partially visible link").And.NotContain("Off-page link");
+		}
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordRelationshipReader = new StreamReader(wordArchive.GetEntry("word/_rels/document.xml.rels")!.Open());
+		wordRelationshipReader.ReadToEnd().Should().Contain("https://example.com/partially-visible-link").And.NotContain("https://example.com/off-page-link");
+		using var documentReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		documentReader.ReadToEnd().Should().Contain("Partially visible link").And.NotContain("Off-page link");
+	}
+
+	[Fact]
+	public void Openxml_renderers_clip_bottom_to_top_hyperlinks_using_vertical_bounds()
+	{
+		var report = new ReportDocument(new[]
+		{
+			new ReportPage(new RenderSize(100, 100), canvas =>
+			{
+				canvas.DrawHyperlink("ABCDEFGHIJ", new RenderPoint(10, 40), new FontRequest("Arial", 10), RenderColor.Black, "https://example.com/vertical-clipped-link", TextDirection.BottomToTop);
+				canvas.DrawHyperlink("Off-page vertical link", new RenderPoint(110, 40), new FontRequest("Arial", 10), RenderColor.Black, "https://example.com/off-page-vertical-link", TextDirection.BottomToTop);
+			})
+		});
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using (var archive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read))
+		{
+			using var sheetReader = new StreamReader(archive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+			sheetReader.ReadToEnd().Should().Contain("ref=\"A1\"").And.NotContain("Off-page vertical link");
+			using var relationshipReader = new StreamReader(archive.GetEntry("xl/worksheets/_rels/sheet1.xml.rels")!.Open());
+			relationshipReader.ReadToEnd().Should().Contain("https://example.com/vertical-clipped-link").And.NotContain("https://example.com/off-page-vertical-link");
+		}
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var documentReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		documentReader.ReadToEnd().Should().Contain("left:10pt;top:0pt;width:12.5pt;height:42.5pt").And.Contain("btLr").And.NotContain("Off-page vertical link");
+		using var wordRelationshipReader = new StreamReader(wordArchive.GetEntry("word/_rels/document.xml.rels")!.Open());
+		wordRelationshipReader.ReadToEnd().Should().Contain("https://example.com/vertical-clipped-link").And.NotContain("https://example.com/off-page-vertical-link");
+	}
+
+	[Fact]
+	public void Openxml_renderers_clip_top_to_bottom_hyperlinks_using_vertical_bounds()
+	{
+		var report = new ReportDocument(new[]
+		{
+			new ReportPage(new RenderSize(100, 100), canvas =>
+			{
+				canvas.DrawHyperlink("ABCDEFGHIJ", new RenderPoint(10, 70), new FontRequest("Arial", 10), RenderColor.Black, "https://example.com/top-to-bottom-clipped-link", TextDirection.TopToBottom);
+				canvas.DrawHyperlink("Off-page downward link", new RenderPoint(110, 70), new FontRequest("Arial", 10), RenderColor.Black, "https://example.com/off-page-downward-link", TextDirection.TopToBottom);
+			})
+		});
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using (var archive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read))
+		{
+			using var sheetReader = new StreamReader(archive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+			sheetReader.ReadToEnd().Should().Contain("ref=\"A4\"").And.NotContain("Off-page downward link");
+			using var relationshipReader = new StreamReader(archive.GetEntry("xl/worksheets/_rels/sheet1.xml.rels")!.Open());
+			relationshipReader.ReadToEnd().Should().Contain("https://example.com/top-to-bottom-clipped-link").And.NotContain("https://example.com/off-page-downward-link");
+		}
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(report, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var documentReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		documentReader.ReadToEnd().Should().Contain("left:10pt;top:60pt;width:12.5pt;height:40pt").And.Contain("tbRl").And.NotContain("Off-page downward link");
+		using var wordRelationshipReader = new StreamReader(wordArchive.GetEntry("word/_rels/document.xml.rels")!.Open());
+		wordRelationshipReader.ReadToEnd().Should().Contain("https://example.com/top-to-bottom-clipped-link").And.NotContain("https://example.com/off-page-downward-link");
+	}
+
+	[Fact]
 	public void Word_openxml_renderer_writes_document_and_external_relationship()
 	{
 		var renderer = new WordOpenXmlRenderer();
@@ -995,6 +1117,29 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
+	public void Rdlc_engine_renders_hierarchy_first_nested_member_trees_without_the_legacy_template_shape()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "arbitrary-nested-member-tree.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = "A", Region = "X", Name = "Alpha" },
+				new { Category = "A", Region = "Y", Name = "Beta" },
+				new { Category = "B", Region = "X", Name = "Gamma" }
+			}
+		}));
+
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		html.Should().Contain("Hierarchy-first member layout").And.Contain("Category summary: A (2)").And.Contain("Category summary: B (1)")
+			.And.Contain("Static member between branches").And.Contain("Region summary: X (2)").And.Contain("Region summary: Y (1)")
+			.And.Contain("Name summary: Alpha").And.Contain("Name summary: Beta").And.Contain("Name summary: Gamma");
+		html.Split("Nested static member").Should().HaveCount(3);
+	}
+
+	[Fact]
 	public void Rdlc_engine_renders_sibling_row_group_branches_without_a_static_header()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "sibling-group-no-header.rdlc");
@@ -1153,6 +1298,93 @@ public sealed class SkiaRenderingTests
 		}));
 
 		createDocument.Should().Throw<NotSupportedException>().WithMessage("*page breaks at 'Between'*Before*");
+	}
+
+	[Fact]
+	public void Rdlc_engine_honors_parameter_disabled_group_page_breaks()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "grouped-pagebreak-disabled.rdlc");
+		ReportDocument CreateDocument(bool disablePageBreak)
+		{
+			using FileStream definition = File.OpenRead(fixturePath);
+			return new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+			{
+				["Items"] = new[]
+				{
+					new { Category = "A", Name = "Alpha", Amount = 1 },
+					new { Category = "B", Name = "Beta", Amount = 2 }
+				}
+			}, new Dictionary<string, object?>
+			{
+				["DisablePageBreak"] = disablePageBreak
+			}));
+		}
+
+		ReportDocument enabled = CreateDocument(false);
+		ReportDocument disabled = CreateDocument(true);
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(disabled, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		enabled.Pages.Should().HaveCount(2);
+		disabled.Pages.Should().HaveCount(1);
+		AssertRendererPageCounts(enabled, 2);
+		AssertRendererPageCounts(disabled, 1);
+		html.Should().Contain("Disabled group page break").And.Contain("Detail: Alpha").And.Contain("Detail: Beta");
+	}
+
+	[Fact]
+	public void Rdlc_engine_honors_parameter_disabled_sibling_start_and_end_page_breaks()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "sibling-group-start-end-pagebreak-disabled.rdlc");
+		ReportDocument CreateDocument(bool disablePageBreak)
+		{
+			using FileStream definition = File.OpenRead(fixturePath);
+			return new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+			{
+				["Items"] = new[]
+				{
+					new { Category = "A", Region = "X", Name = "Alpha" },
+					new { Category = "A", Region = "Y", Name = "Beta" },
+					new { Category = "B", Region = "X", Name = "Gamma" }
+				}
+			}, new Dictionary<string, object?>
+			{
+				["DisablePageBreak"] = disablePageBreak
+			}));
+		}
+
+		ReportDocument enabled = CreateDocument(false);
+		ReportDocument disabled = CreateDocument(true);
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(disabled, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		AssertRendererPageCounts(enabled, 4);
+		AssertRendererPageCounts(disabled, 1);
+		html.Should().Contain("Sibling disabled start-and-end break").And.Contain("Category: A (2)").And.Contain("Static interstitial section").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Grand total rows: 3");
+	}
+
+	[Fact]
+	public void Rdlc_engine_honors_field_disabled_group_page_breaks_at_group_scope()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "grouped-pagebreak-field-disabled.rdlc");
+		ReportDocument CreateDocument(bool disableBreakForSecondGroup)
+		{
+			using FileStream definition = File.OpenRead(fixturePath);
+			return new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+			{
+				["Items"] = new[]
+				{
+					new { Category = "A", Name = "Alpha", DisableBreak = true },
+					new { Category = "B", Name = "Beta", DisableBreak = disableBreakForSecondGroup }
+				}
+			}));
+		}
+
+		ReportDocument enabled = CreateDocument(false);
+		ReportDocument disabled = CreateDocument(true);
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(disabled, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		AssertRendererPageCounts(enabled, 2);
+		AssertRendererPageCounts(disabled, 1);
+		html.Should().Contain("Field-disabled group page break").And.Contain("Group: A (True)").And.Contain("Group: B (True)").And.Contain("Detail: Alpha").And.Contain("Detail: Beta");
 	}
 
 	[Fact]
@@ -2015,6 +2247,31 @@ public sealed class SkiaRenderingTests
 			request.Value.Should().Be("logo");
 			return new RenderImage(1, 1, "png"u8.ToArray());
 		}
+	}
+
+	private static void AssertRendererPageCounts(ReportDocument document, int expectedPageCount)
+	{
+		using var bitmap = new SkiaBitmapRenderer();
+		int pngPageCount = document.Pages.Count(page => bitmap.Render(page.Size, page.Render).PngData.Length > 0);
+		pngPageCount.Should().Be(expectedPageCount);
+
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		html.Split("<section class=\"report-page\"", StringSplitOptions.None).Length.Should().Be(expectedPageCount + 1);
+
+		using var pdf = new SkiaPdfRenderer();
+		string pdfContent = System.Text.Encoding.Latin1.GetString(pdf.Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span);
+		System.Text.RegularExpressions.Regex.Matches(pdfContent, @"/Type\s*/Page(?!s)").Count.Should().Be(expectedPageCount);
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using (var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read))
+		using (var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open()))
+		{
+			wordReader.ReadToEnd().Split("<w:pgSz", StringSplitOptions.None).Length.Should().Be(expectedPageCount + 1);
+		}
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		excelArchive.Entries.Count(entry => entry.FullName.StartsWith("xl/worksheets/sheet", StringComparison.Ordinal) && entry.FullName.EndsWith(".xml", StringComparison.Ordinal)).Should().Be(expectedPageCount);
 	}
 
 	private sealed class FixturePageSource : IReportPageSource

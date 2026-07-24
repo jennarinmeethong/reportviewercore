@@ -139,7 +139,8 @@ internal sealed record OpenXmlText(
 	string? Url,
 	RenderRect? TableCellBounds = null,
 	int ColumnSpan = 1,
-	int RowSpan = 1);
+	int RowSpan = 1,
+	RenderRect? VisibleBounds = null);
 
 internal sealed record OpenXmlImage(RenderImage Image, RenderRect Destination, OpenXmlImageCrop? Crop = null);
 
@@ -304,9 +305,64 @@ internal static class OpenXmlPackageWriter
 				.Select(shape => ClipShapeToPage(shape, canvas.Size))
 				.OfType<OpenXmlShape>()
 				.ToArray();
-			pages.Add(new OpenXmlPage(canvas.Texts, images, canvas.Charts, shapes, canvas.Size, preview));
+			IReadOnlyList<OpenXmlText> texts = canvas.Texts
+				.Select(text => ClipTextToPage(text, canvas.Size))
+				.OfType<OpenXmlText>()
+				.ToArray();
+			IReadOnlyList<OpenXmlChart> charts = canvas.Charts
+				.Select(chart => ClipChartToPage(chart, canvas.Size))
+				.OfType<OpenXmlChart>()
+				.ToArray();
+			pages.Add(new OpenXmlPage(texts, images, charts, shapes, canvas.Size, preview));
 		}
 		return pages;
+	}
+
+	private static OpenXmlText? ClipTextToPage(OpenXmlText text, RenderSize pageSize)
+	{
+		if (!IsFinite(text.Baseline) || !float.IsFinite(text.Font.Size) || text.Font.Size <= 0)
+		{
+			return null;
+		}
+
+		RenderRect bounds = text.TableCellBounds ?? EstimatedTextBounds(text);
+		if (!IsFinite(bounds) || bounds.Width <= 0 || bounds.Height <= 0)
+		{
+			return null;
+		}
+
+		RenderRect clipped = Intersect(bounds, new RenderRect(0, 0, pageSize.Width, pageSize.Height));
+		if (clipped.Width <= 0 || clipped.Height <= 0)
+		{
+			return null;
+		}
+
+		if (text.TableCellBounds is not null)
+		{
+			int column = Math.Max(1, (int)MathF.Floor(clipped.X / 64) + 1);
+			int row = Math.Max(1, (int)MathF.Floor(clipped.Y / 20) + 1);
+			int maxColumn = Math.Max(1, (int)MathF.Ceiling(pageSize.Width / 64));
+			int maxRow = Math.Max(1, (int)MathF.Ceiling(pageSize.Height / 20));
+			return text with
+			{
+				TableCellBounds = clipped,
+				ColumnSpan = Math.Min(text.ColumnSpan, Math.Max(1, maxColumn - column + 1)),
+				RowSpan = Math.Min(text.RowSpan, Math.Max(1, maxRow - row + 1))
+			};
+		}
+
+		return SameBounds(bounds, clipped) ? text : text with { VisibleBounds = clipped };
+	}
+
+	private static OpenXmlChart? ClipChartToPage(OpenXmlChart chart, RenderSize pageSize)
+	{
+		if (!IsFinite(chart.Destination) || chart.Destination.Width <= 0 || chart.Destination.Height <= 0)
+		{
+			return null;
+		}
+
+		RenderRect clipped = Intersect(chart.Destination, new RenderRect(0, 0, pageSize.Width, pageSize.Height));
+		return clipped.Width <= 0 || clipped.Height <= 0 ? null : chart with { Destination = clipped };
 	}
 
 	private static OpenXmlImage? ClipImageToPage(OpenXmlImage image, RenderSize pageSize)
@@ -371,6 +427,9 @@ internal static class OpenXmlPackageWriter
 		float bottom = MathF.Min(first.Bottom, second.Bottom);
 		return new RenderRect(left, top, MathF.Max(0, right - left), MathF.Max(0, bottom - top));
 	}
+
+	private static bool SameBounds(RenderRect first, RenderRect second) =>
+		first.X == second.X && first.Y == second.Y && first.Width == second.Width && first.Height == second.Height;
 
 	private static bool ClipLine(RenderPoint start, RenderPoint end, RenderSize pageSize, out RenderPoint clippedStart, out RenderPoint clippedEnd)
 	{
@@ -486,7 +545,8 @@ internal static class OpenXmlPackageWriter
 		var rows = new Dictionary<int, List<(int Column, OpenXmlText Text)>>();
 		foreach (OpenXmlText text in page.Texts)
 		{
-			RenderPoint cellOrigin = text.TableCellBounds is RenderRect bounds
+			RenderRect? originBounds = text.VisibleBounds ?? text.TableCellBounds;
+			RenderPoint cellOrigin = originBounds is RenderRect bounds
 				? new RenderPoint(bounds.X, bounds.Y)
 				: text.Baseline;
 			int row = Math.Max(1, (int)MathF.Floor(cellOrigin.Y / 20) + 1);
@@ -921,16 +981,42 @@ internal static class OpenXmlPackageWriter
 
 	private static RenderRect TextBounds(OpenXmlText text, RenderSize pageSize)
 	{
+		if (text.VisibleBounds is RenderRect visibleBounds)
+		{
+			return visibleBounds;
+		}
+
 		if (text.TableCellBounds is RenderRect tableCellBounds)
 		{
 			return tableCellBounds;
 		}
 
-		float x = Math.Clamp(text.Baseline.X, 0, MathF.Max(0, pageSize.Width - 1));
-		float y = Math.Clamp(text.Baseline.Y - text.Font.Size, 0, MathF.Max(0, pageSize.Height - 1));
+		RenderRect estimated = EstimatedTextBounds(text);
+		float x = Math.Clamp(estimated.X, 0, MathF.Max(0, pageSize.Width - 1));
+		float y = Math.Clamp(estimated.Y, 0, MathF.Max(0, pageSize.Height - 1));
+		float width = MathF.Min(estimated.Width, MathF.Max(text.Font.Size, pageSize.Width - x));
+		float height = MathF.Min(estimated.Height, MathF.Max(text.Font.Size, pageSize.Height - y));
+		return new RenderRect(x, y, width, height);
+	}
+
+	private static RenderRect EstimatedTextBounds(OpenXmlText text)
+	{
 		string[] lines = text.Text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
-		float width = MathF.Min(MathF.Max(text.Font.Size, lines.Max(line => line.Length * text.Font.Size * 0.58f + 2)), MathF.Max(text.Font.Size, pageSize.Width - x));
-		float height = MathF.Min(MathF.Max(text.Font.Size * 1.25f, lines.Length * text.Font.Size * 1.25f), MathF.Max(text.Font.Size, pageSize.Height - y));
+		if (text.Direction is TextDirection.TopToBottom or TextDirection.BottomToTop)
+		{
+			float lineHeight = MathF.Max(text.Font.Size * 1.25f, text.Font.Size);
+			float verticalWidth = MathF.Max(text.Font.Size, lines.Length * lineHeight);
+			float verticalHeight = MathF.Max(lineHeight, lines.Max(line => Math.Max(1, line.Length)) * lineHeight);
+			float verticalY = text.Direction == TextDirection.TopToBottom
+				? text.Baseline.Y - text.Font.Size
+				: text.Baseline.Y - text.Font.Size - (verticalHeight - lineHeight);
+			return new RenderRect(text.Baseline.X, verticalY, verticalWidth, verticalHeight);
+		}
+
+		float x = text.Baseline.X;
+		float y = text.Baseline.Y - text.Font.Size;
+		float width = MathF.Max(text.Font.Size, lines.Max(line => line.Length * text.Font.Size * 0.58f + 2));
+		float height = MathF.Max(text.Font.Size * 1.25f, lines.Length * text.Font.Size * 1.25f);
 		return new RenderRect(x, y, width, height);
 	}
 

@@ -68,19 +68,19 @@ var manifest = new
 	Pages = new[]
 	{
 		new { Number = 1, Width = firstPageWidth, Height = firstPageHeight, Focus = "text, styles, directions, links, image, table-cell spans, rectangles, lines" },
-		new { Number = 2, Width = secondPageWidth, Height = secondPageHeight, Focus = "bar, column, line, area, pie, doughnut charts and page clipping" }
+		new { Number = 2, Width = secondPageWidth, Height = secondPageHeight, Focus = "bar, column, line, area, pie, doughnut charts plus image, vector, text, hyperlink, and chart page clipping" }
 	},
 	OutputFormats = new[] { "png", "pdf", "html", "xlsx", "docx" },
 	Features = new[]
 	{
 		"Clear and filled/stroked rectangles",
 		"Lines with visible and page-clipped geometry",
-		"Text family, size, bold, italic, color, whitespace, and multiline content",
-		"Left-to-right, right-to-left, top-to-bottom, and bottom-to-top text",
-		"Relative and HTTP hyperlink validation path",
+		"Text family, size, bold, italic, color, whitespace, multiline content, and page clipping",
+		"Left-to-right, right-to-left, top-to-bottom, and bottom-to-top text with page-clipped vertical hyperlink bounds",
+		"Relative and HTTP hyperlink validation path, including page-clipped hyperlink bounds",
 		"Embedded PNG image with page-clipped image crop metadata",
 		"Table cells with ColSpan and RowSpan metadata",
-		"Bar compatibility shim plus column, line, area, pie, and doughnut charts",
+		"Bar compatibility shim plus column, line, area, pie, and doughnut charts with page-clipped native chart bounds",
 		"Multi-page document with different page sizes and native page boundaries"
 	},
 	Files = generatedFiles
@@ -105,10 +105,10 @@ static void WriteRdlcShowcase(string outputDirectory, SkiaBitmapRenderer bitmapR
 	{
 		["Items"] = new[]
 		{
-			new ShowcaseRow("North", "Alpha", 12),
-			new ShowcaseRow("North", "Beta", 8),
-			new ShowcaseRow("South", "Gamma", 16),
-			new ShowcaseRow("South", "Delta", 5)
+			new ShowcaseRow("North", "West", "Alpha", 12),
+			new ShowcaseRow("North", "East", "Beta", 8),
+			new ShowcaseRow("South", "West", "Gamma", 16),
+			new ShowcaseRow("South", "East", "Delta", 5)
 		}
 	});
 	localReport.SetParameters(new Dictionary<string, object?>
@@ -142,6 +142,8 @@ static void WriteRdlcShowcase(string outputDirectory, SkiaBitmapRenderer bitmapR
 			"RDLC page header and footer",
 			"Fields, parameters, string concatenation, CountRows, Sum, Avg, Min, and Max",
 			"Grouped tablix with sorting-ready data and ColSpan/RowSpan metadata",
+			"Allow-listed parameter- and field-disabled group page breaks",
+			"Hierarchy-first nested TablixMember branches with static members",
 			"Conditional visibility and hyperlink action",
 			"Embedded image, rectangle, line, and nested report items",
 			"Bar, column, line, area, pie, and doughnut charts"
@@ -165,6 +167,7 @@ static void DrawOverview(IRenderCanvas canvas, RenderImage image)
 	canvas.DrawText("RTL: تقرير محمول", new RenderPoint(36, 280), new FontRequest("Arial", 16), RenderColor.Black, TextDirection.RightToLeft);
 	canvas.DrawText("Vertical: 縦書き", new RenderPoint(520, 280), new FontRequest("Arial", 14), RenderColor.Black, TextDirection.TopToBottom);
 	canvas.DrawText("Reverse: 逆", new RenderPoint(680, 280), new FontRequest("Arial", 14), RenderColor.Black, TextDirection.BottomToTop);
+	canvas.DrawHyperlink("Vertical clipped link", new RenderPoint(700, 900), new FontRequest("Arial", 12), new RenderColor(20, 90, 180), "https://example.com/vertical-clipped-link", TextDirection.TopToBottom);
 	canvas.DrawText("Multiline text\nwith native line breaks", new RenderPoint(36, 330), new FontRequest("Arial", 14), new RenderColor(55, 65, 81));
 	canvas.DrawHyperlink("Relative report link", new RenderPoint(36, 390), new FontRequest("Arial", 14), new RenderColor(20, 90, 180), "/reports/detail");
 	canvas.DrawHyperlink("HTTP documentation link", new RenderPoint(220, 390), new FontRequest("Arial", 14), new RenderColor(20, 90, 180), "https://example.com/report");
@@ -210,7 +213,9 @@ static void DrawChartsAndClipping(IRenderCanvas canvas, RenderImage image)
 	canvas.DrawImage(image, new RenderRect(-24, 690, 100, 80));
 	canvas.FillRectangle(new RenderRect(-18, 790, 80, 40), new RenderColor(230, 130, 80));
 	canvas.DrawLine(new RenderPoint(-20, 850), new RenderPoint(180, 690), new RenderColor(170, 50, 50), 3);
+	canvas.DrawHyperlink("Link clips at the left page edge.", new RenderPoint(-18, 742), new FontRequest("Arial", 12), new RenderColor(20, 90, 180), "https://example.com/clipped-link");
+	canvas.DrawChart(RenderChartType.Column, "Clipped chart", points, new RenderRect(760, 630, 120, 120), chartFont, chartColor);
 	canvas.DrawText("Visible portions remain inside the page in Skia, HTML, DOCX, and XLSX.", new RenderPoint(210, 760), new FontRequest("Arial", 12), RenderColor.Black);
 }
 
-file sealed record ShowcaseRow(string Category, string Name, decimal Amount);
+file sealed record ShowcaseRow(string Category, string Region, string Name, decimal Amount, bool DisablePageBreak = true);

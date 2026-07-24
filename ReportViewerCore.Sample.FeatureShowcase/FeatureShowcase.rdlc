@@ -8,8 +8,10 @@
     <DataSet Name="Items">
       <Fields>
         <Field Name="Category"><DataField>Category</DataField></Field>
+        <Field Name="Region"><DataField>Region</DataField></Field>
         <Field Name="Name"><DataField>Name</DataField></Field>
         <Field Name="Amount"><DataField>Amount</DataField></Field>
+		<Field Name="DisablePageBreak"><DataField>DisablePageBreak</DataField></Field>
       </Fields>
     </DataSet>
   </DataSets>
@@ -52,7 +54,25 @@
               <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Item: " &amp; Fields!Name.Value</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Amount: " &amp; Fields!Amount.Value</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Average: " &amp; Avg(Fields!Amount.Value)</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
               <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><ColSpan>2</ColSpan><CellContents><Textbox><Style><FontWeight>Bold</FontWeight></Style><TextRuns><TextRun><Value>="Subtotal = " &amp; Sum(Fields!Amount.Value)</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell><TablixCell><CellContents><Textbox><Style><FontWeight>Bold</FontWeight></Style><TextRuns><TextRun><Value>Group complete</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
             </TablixRows>
-          </TablixBody><TablixRowHierarchy><TablixMembers><TablixMember><KeepWithGroup>After</KeepWithGroup></TablixMember><TablixMember><Group Name="CategoryGroup"><GroupExpressions><GroupExpression>=Fields!Category.Value</GroupExpression></GroupExpressions></Group></TablixMember></TablixMembers></TablixRowHierarchy>
+		  </TablixBody><TablixRowHierarchy><TablixMembers><TablixMember><KeepWithGroup>After</KeepWithGroup></TablixMember><TablixMember><Group Name="CategoryGroup"><GroupExpressions><GroupExpression>=Fields!Category.Value</GroupExpression></GroupExpressions><PageBreak><Disabled>=Fields!DisablePageBreak.Value</Disabled><BreakLocation>Between</BreakLocation></PageBreak></Group></TablixMember></TablixMembers></TablixRowHierarchy>
+          </Tablix>
+          <Textbox Name="HierarchyFirstCaption"><Left>0.8cm</Left><Top>30.5cm</Top><Width>18cm</Width><Height>0.5cm</Height><Style><FontSize>12pt</FontSize><FontWeight>Bold</FontWeight><Color>#18304E</Color></Style><TextRuns><TextRun><Value>Hierarchy-first nested member tree</Value></TextRun></TextRuns></Textbox>
+          <Tablix Name="HierarchyFirstMembers"><Left>0.8cm</Left><Top>31.2cm</Top><DataSetName>Items</DataSetName><TablixBody>
+            <TablixColumns><TablixColumn><Width>16.5cm</Width></TablixColumn></TablixColumns>
+            <TablixRows>
+              <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><Style><FontWeight>Bold</FontWeight><Color>#FFFFFF</Color><BackgroundColor>#18304E</BackgroundColor></Style><TextRuns><TextRun><Value>Hierarchy-first template mapping</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+              <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Category branch: " &amp; Fields!Category.Value &amp; " (" &amp; CountRows() &amp; ")"</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+              <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><Style><FontStyle>Italic</FontStyle></Style><TextRuns><TextRun><Value>Static member between root branches</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+              <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Region branch: " &amp; Fields!Region.Value &amp; " (" &amp; CountRows() &amp; ")"</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+              <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><Style><FontStyle>Italic</FontStyle></Style><TextRuns><TextRun><Value>Nested static member</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+              <TablixRow><Height>0.7cm</Height><TablixCells><TablixCell><CellContents><Textbox><TextRuns><TextRun><Value>="Name branch: " &amp; Fields!Name.Value</Value></TextRun></TextRuns></Textbox></CellContents></TablixCell></TablixCells></TablixRow>
+            </TablixRows>
+          </TablixBody><TablixRowHierarchy><TablixMembers>
+            <TablixMember><KeepWithGroup>After</KeepWithGroup></TablixMember>
+            <TablixMember><Group Name="HierarchyCategoryGroup"><GroupExpressions><GroupExpression>=Fields!Category.Value</GroupExpression></GroupExpressions></Group></TablixMember>
+            <TablixMember><KeepWithGroup>After</KeepWithGroup></TablixMember>
+            <TablixMember><Group Name="HierarchyRegionGroup"><GroupExpressions><GroupExpression>=Fields!Region.Value</GroupExpression></GroupExpressions></Group><TablixMembers><TablixMember><KeepWithGroup>After</KeepWithGroup></TablixMember><TablixMember><Group Name="HierarchyNameGroup"><GroupExpressions><GroupExpression>=Fields!Name.Value</GroupExpression></GroupExpressions></Group></TablixMember></TablixMembers></TablixMember>
+          </TablixMembers></TablixRowHierarchy>
           </Tablix>
         </ReportItems>
       </Body>

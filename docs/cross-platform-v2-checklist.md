@@ -11,8 +11,9 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] Constrained RDLC engine: tablixes, sorting, multi-level group scopes, headers/footers, subtotals, images, charts, hyperlinks, nested items, subreports, parameters, expressions, and pagination.
 - [x] `IReportPageSource`/`ReportPageSourceAdapter` seam for legacy RPL/SPB pagination.
 - [x] Windows display adapter and opt-in legacy `RenderPortable` bridges.
-- [x] 117 regression tests, 56 content-complete RDLC fixtures, RID publish workflow, seven `2.0.0-preview.1` packages, samples, and migration docs.
+- [x] 126 regression tests, 60 content-complete RDLC fixtures, RID publish workflow, seven `2.0.0-preview.1` packages, samples, and migration docs.
 - [x] Feature-showcase console project exports every portable file type plus manifests covering all positive canvas and RDLC-engine showcase features, including pagination, table spans, image crop, vector clipping, grouping, aggregates, headers/footers, visibility, hyperlinks, embedded images, and charts.
+- [x] Compare direct-canvas and RDLC showcase semantics across HTML/PDF/DOCX/XLSX, require matching page counts, parse every SVG, verify that every embedded Office page preview is byte-identical to its PNG source, and assert hyperlink targets across HTML/PDF/DOCX/XLSX plus native Office image/shape/chart metadata.
 - [x] Preserve basic charts, rectangles, and lines placed inside tablix cells with cell-column and repeated-row offsets.
 - [x] Preserve bar/column/line/area/pie/doughnut chart semantics through the shared fixture and native backend output parts; unsupported Radar remains an explicit negative case.
 
@@ -33,8 +34,9 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] Support constrained three-or-more-level row-group prefix headers/scopes using matching row templates.
 - [x] Traverse nested `TablixMember` group expressions in document order for constrained scopes.
 - [x] Honor constrained grouped `PageBreak` metadata only when the configured member-scope prefix changes.
+- [x] Resolve parameter- and field-disabled group page breaks at materialized group scope and prove the enabled/disabled page counts match PNG, HTML, PDF, DOCX, and XLSX outputs.
 - [x] Support shape-matched recursive `TablixMember` trees with static wrappers, multiple nested dynamic children, scoped leading/trailing rows, recursive headers/details, subtotals, totals, and supported page breaks.
-- [ ] Support unrestricted arbitrary nested `TablixMember` row layouts without a deterministic row-template shape contract; ambiguous layouts remain explicitly constrained.
+- [x] Support arbitrary nested `TablixMember` row layouts through a hierarchy-first renderer when each member has an explicit body template; legacy compact header/detail layouts retain their compatible renderer path.
 - [x] Support terminal sibling row-group branches and nested dynamic branch trees, including single-root nested sibling trees, with independent group/detail sections, optional static headers, explicit static wrapper members with recursive dynamic → static → dynamic children, child `End` boundaries before wrapper subtotals, and nested child `StartAndEnd` breaks, scoped leading/trailing static child rows, explicit root-level interstitial static members, an optional root-level trailing total row, and branch-specific `Between`/`Start`/`End`/`StartAndEnd` page breaks; linear dynamic members with static leaf children repeat the first leaf as detail and emit later leaves as scoped footers; other static layouts and break locations remain deferred.
 - [x] Reject branching row-member trees and unsupported grouped page-break locations explicitly; linear nested groups support `Between`, `Start`, `End`, and `StartAndEnd` while other member layouts remain constrained.
 - [x] Add scoped `First`, `Last`, and `Count` aggregates through the allow-listed expression host.
@@ -58,7 +60,8 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] Preserve backend-neutral page boundaries as DOCX `nextPage` sections with per-page sizes and XLSX worksheets.
 - [x] Clip OpenXML images that cross page boundaries, preserving visible anchors and source crop metadata in DOCX/XLSX.
 - [x] Clip OpenXML vector rectangles and lines that cross page boundaries, preserving visible bounds and line endpoints in DOCX/XLSX.
-- [ ] Add clipping for text and chart objects across page boundaries plus broader hyperlink/image fidelity.
+- [x] Clip OpenXML text, hyperlinks, and charts that cross page boundaries; fully off-page semantic objects and hyperlink relationships are omitted, while partially visible horizontal and vertical text/link/chart bounds are constrained before DOCX/XLSX emission.
+- [ ] Broaden OpenXML hyperlink/image fidelity beyond the current bounded anchors, crop metadata, and URL-policy coverage.
 - [x] Validate platform font fallback and caller-owned registered-font policy for Latin, Thai, Arabic, CJK, RTL, and vertical text; unknown families fail closed, and OpenXML references font families without silently embedding or substituting font bytes.
 - [x] Define explicit registered-font failure behavior; missing caller-supplied font files fail before rendering, while platform fallback remains runtime/RID-specific.
 

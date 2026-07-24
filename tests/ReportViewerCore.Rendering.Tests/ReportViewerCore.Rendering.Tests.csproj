@@ -53,6 +53,8 @@
     <None Include="..\fixtures\engine\nested-static-wrapper-single-child.rdlc" Link="fixtures\engine\nested-static-wrapper-single-child.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\nested-static-wrapper-multiple-children.rdlc" Link="fixtures\engine\nested-static-wrapper-multiple-children.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\grouped-pagebreak.rdlc" Link="fixtures\engine\grouped-pagebreak.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\grouped-pagebreak-disabled.rdlc" Link="fixtures\engine\grouped-pagebreak-disabled.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\grouped-pagebreak-field-disabled.rdlc" Link="fixtures\engine\grouped-pagebreak-field-disabled.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\grouped-null-keys.rdlc" Link="fixtures\engine\grouped-null-keys.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\culture-sorted-tablix.rdlc" Link="fixtures\engine\culture-sorted-tablix.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\multi-value-parameter.rdlc" Link="fixtures\engine\multi-value-parameter.rdlc" CopyToOutputDirectory="PreserveNewest" />
@@ -63,9 +65,11 @@
     <None Include="..\fixtures\engine\column-chart.rdlc" Link="fixtures\engine\column-chart.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\is-nothing.rdlc" Link="fixtures\engine\is-nothing.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\unsupported-group-branch.rdlc" Link="fixtures\engine\unsupported-group-branch.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\arbitrary-nested-member-tree.rdlc" Link="fixtures\engine\arbitrary-nested-member-tree.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\sibling-group-branches.rdlc" Link="fixtures\engine\sibling-group-branches.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\sibling-group-start-pagebreak.rdlc" Link="fixtures\engine\sibling-group-start-pagebreak.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\sibling-group-start-end-pagebreak.rdlc" Link="fixtures\engine\sibling-group-start-end-pagebreak.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\sibling-group-start-end-pagebreak-disabled.rdlc" Link="fixtures\engine\sibling-group-start-end-pagebreak-disabled.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\nested-sibling-child-end-pagebreak.rdlc" Link="fixtures\engine\nested-sibling-child-end-pagebreak.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\nested-sibling-group-branches.rdlc" Link="fixtures\engine\nested-sibling-group-branches.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\nested-sibling-single-root.rdlc" Link="fixtures\engine\nested-sibling-single-root.rdlc" CopyToOutputDirectory="PreserveNewest" />

@@ -13,9 +13,9 @@ Index project-local tools here. Each entry should include purpose, runtime, comm
 
 ## `validate_cross_format.py`
 
-- Purpose: compare the RDLC showcase's stable semantic markers and page mapping across HTML, PDF, DOCX, XLSX, and PNG outputs; parse every emitted SVG, validate readable PNG dimensions, and require DOCX/XLSX page-preview images to match the corresponding PNG bytes.
+- Purpose: compare both the direct-canvas and RDLC showcases' stable semantic markers and page mapping across HTML, PDF, DOCX, XLSX, and PNG outputs; parse every emitted SVG, validate readable PNG dimensions, require DOCX/XLSX page-preview images to match the corresponding PNG bytes, and assert native Office hyperlink targets, PNG image parts, chart types, Excel shapes, and direct-showcase crop metadata.
 - Runtime: bundled Python with `pypdf` and `Pillow` from the workspace dependency loader.
-- Command: `python3 .devbuddy/tools/validate_cross_format.py artifacts/feature-showcase/rdlc-feature-showcase`
+- Command: `python3 .devbuddy/tools/validate_cross_format.py artifacts/feature-showcase` and `python3 .devbuddy/tools/validate_cross_format.py artifacts/feature-showcase/rdlc-feature-showcase`
 - Expected output: one passing line with four semantic formats, matching page counts, and the marker count; otherwise a non-zero exit identifies the mismatched format or malformed package.
 
 ## Test result artifacts
