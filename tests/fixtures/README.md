@@ -14,16 +14,16 @@ Every RDLC in `engine/` is copied into the test output and validated as non-empt
 | --- | --- |
 | `merged-cell-table.rdlc` | Tablix ColSpan propagation into an OpenXML merged-cell range |
 | `simple.rdlc` | Basic field binding and single-page HTML rendering |
-| `image.rdlc`, `image-expression.rdlc`, `tablix-image.rdlc` | Embedded, resolved, and tablix-cell images |
+| `image.rdlc`, `image-expression.rdlc`, `image-openxml-clipped.rdlc`, `tablix-image.rdlc` | Embedded, resolved, all-edge page-clipped OpenXML, and tablix-cell images |
 | `chart.rdlc`, `column-chart.rdlc` | Bar, column, line, area, pie, doughnut, and unsupported-chart regression inputs |
 | `multi-tablix.rdlc`, `mixed-tablix-subreport.rdlc`, `tablix-visual-items.rdlc` | Multiple regions, mixed subreport content, and cell-relative text/image/rectangle/line/chart placement |
 | `subreport-parent.rdlc`, `subreport-parameter-child.rdlc` | Explicit subreport resolution and parameter mapping |
 | `header-footer.rdlc`, `header-footer-tablix.rdlc`, `nested-header-footer.rdlc` | Repeating page decorations for textbox, tablix, and nested-container reports |
 | `parameter-default.rdlc`, `parameter-case-insensitive.rdlc`, `multi-value-parameter.rdlc` | Scalar/default, case-insensitive, and multi-value parameter behavior plus allow-listed `Join` |
-| `hyperlink.rdlc` | Safe hyperlink propagation to HTML, PDF, and OpenXML |
+| `hyperlink.rdlc` | Safe hyperlink propagation to HTML, PDF, and native XLSX/DOCX relationships |
 | `nested-items.rdlc`, `styled-text.rdlc`, `international-text.rdlc` | Nested placement, styles, color, Thai/Arabic/CJK/RTL, and vertical text |
 | `multiline.rdlc` | Multiline text mapped to native Word line-break nodes |
-| `composite-expression.rdlc`, `string-functions.rdlc`, `string-functions-advanced.rdlc`, `is-nothing.rdlc`, `visibility.rdlc` | Allow-listed expressions/string functions, search/replace, null checks, boolean composition, and initial hidden state |
+| `composite-expression.rdlc`, `string-functions.rdlc`, `string-functions-advanced.rdlc`, `format-number.rdlc`, `is-nothing.rdlc`, `visibility.rdlc` | Allow-listed expressions/string functions, numeric formatting, search/replace, null checks, boolean composition, and initial hidden state |
 | `sorted-tablix.rdlc`, `culture-sorted-tablix.rdlc` | Stable row sorting and culture-specific decimal sorting |
 | `grouped-tablix.rdlc`, `nested-grouped-tablix.rdlc`, `grouped-null-keys.rdlc` | Scoped grouping, nested prefix scopes, null keys, headers, subtotals, and aggregates |
 | `sibling-group-branches.rdlc`, `sibling-group-no-header.rdlc`, `sibling-group-start-pagebreak.rdlc`, `sibling-group-start-end-pagebreak.rdlc`, `sibling-group-start-end-pagebreak-disabled.rdlc`, `nested-sibling-group-branches.rdlc`, `nested-sibling-child-end-pagebreak.rdlc`, `nested-sibling-single-root.rdlc`, `nested-sibling-single-root-no-header.rdlc` | Terminal and nested sibling row-group branches rendered as independent group/detail sections with optional static header, recursive dynamic/static child ordering, single-root nested branches, leading/trailing static child, root interstitial static member, and branch `Start`/`StartAndEnd`/parameter-disabled page-break coverage |

@@ -1301,7 +1301,7 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
-	public void Rdlc_engine_honors_parameter_disabled_group_page_breaks()
+	public void Rdlc_engine_honors_parameter_disabled_group_page_breaks_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "grouped-pagebreak-disabled.rdlc");
 		ReportDocument CreateDocument(bool disablePageBreak)
@@ -1328,11 +1328,22 @@ public sealed class SkiaRenderingTests
 		disabled.Pages.Should().HaveCount(1);
 		AssertRendererPageCounts(enabled, 2);
 		AssertRendererPageCounts(disabled, 1);
-		html.Should().Contain("Disabled group page break").And.Contain("Detail: Alpha").And.Contain("Detail: Beta");
+		string expected = "Disabled group page break";
+		html.Should().Contain(expected).And.Contain("Detail: Alpha").And.Contain("Detail: Beta");
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(disabled, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain(expected).And.Contain("Detail: Alpha").And.Contain("Detail: Beta");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(disabled, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain(expected).And.Contain("Detail: Alpha").And.Contain("Detail: Beta");
 	}
 
 	[Fact]
-	public void Rdlc_engine_honors_parameter_disabled_sibling_start_and_end_page_breaks()
+	public void Rdlc_engine_honors_parameter_disabled_sibling_start_and_end_page_breaks_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "sibling-group-start-end-pagebreak-disabled.rdlc");
 		ReportDocument CreateDocument(bool disablePageBreak)
@@ -1358,11 +1369,22 @@ public sealed class SkiaRenderingTests
 
 		AssertRendererPageCounts(enabled, 4);
 		AssertRendererPageCounts(disabled, 1);
-		html.Should().Contain("Sibling disabled start-and-end break").And.Contain("Category: A (2)").And.Contain("Static interstitial section").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Grand total rows: 3");
+		string expected = "Sibling disabled start-and-end break";
+		html.Should().Contain(expected).And.Contain("Category: A (2)").And.Contain("Static interstitial section").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Grand total rows: 3");
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(disabled, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain(expected).And.Contain("Category: A (2)").And.Contain("Static interstitial section").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Grand total rows: 3");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(disabled, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain(expected).And.Contain("Category: A (2)").And.Contain("Static interstitial section").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Grand total rows: 3");
 	}
 
 	[Fact]
-	public void Rdlc_engine_honors_field_disabled_group_page_breaks_at_group_scope()
+	public void Rdlc_engine_honors_field_disabled_group_page_breaks_at_group_scope_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "grouped-pagebreak-field-disabled.rdlc");
 		ReportDocument CreateDocument(bool disableBreakForSecondGroup)
@@ -1384,11 +1406,22 @@ public sealed class SkiaRenderingTests
 
 		AssertRendererPageCounts(enabled, 2);
 		AssertRendererPageCounts(disabled, 1);
-		html.Should().Contain("Field-disabled group page break").And.Contain("Group: A (True)").And.Contain("Group: B (True)").And.Contain("Detail: Alpha").And.Contain("Detail: Beta");
+		string expected = "Field-disabled group page break";
+		html.Should().Contain(expected).And.Contain("Group: A (True)").And.Contain("Group: B (True)").And.Contain("Detail: Alpha").And.Contain("Detail: Beta");
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(disabled, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain(expected).And.Contain("Group: A (True)").And.Contain("Group: B (True)").And.Contain("Detail: Alpha").And.Contain("Detail: Beta");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(disabled, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain(expected).And.Contain("Group: A (True)").And.Contain("Group: B (True)").And.Contain("Detail: Alpha").And.Contain("Detail: Beta");
 	}
 
 	[Fact]
-	public void Rdlc_engine_resolves_undeclared_parameters_case_insensitively()
+	public void Rdlc_engine_resolves_undeclared_parameters_case_insensitively_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "parameter-case-insensitive.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1398,7 +1431,19 @@ public sealed class SkiaRenderingTests
 		}));
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("Greeting: Welcome");
+		string expected = "Greeting: Welcome";
+		html.Should().Contain(expected);
+		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain(expected);
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain(expected);
 	}
 
 	[Fact]
@@ -1427,7 +1472,7 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
-	public void Rdlc_engine_resolves_allow_listed_is_nothing_expression()
+	public void Rdlc_engine_resolves_allow_listed_is_nothing_expression_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "is-nothing.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1436,25 +1481,77 @@ public sealed class SkiaRenderingTests
 			new Dictionary<string, object?> { ["Optional"] = null }));
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("Null=True Value=False Parameter=True Logic=True Or=True Unknown= UnknownLogic=").And.NotContain("Unknown=True").And.NotContain("UnknownLogic=True");
+		string expected = "Null=True Value=False Parameter=True Logic=True Or=True Unknown= UnknownLogic=";
+		html.Should().Contain(expected).And.NotContain("Unknown=True").And.NotContain("UnknownLogic=True");
+		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain(expected).And.NotContain("Unknown=True").And.NotContain("UnknownLogic=True");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain(expected).And.NotContain("Unknown=True").And.NotContain("UnknownLogic=True");
 	}
 
 	[Fact]
-	public void Rdlc_engine_preserves_textbox_hyperlinks_for_html_and_pdf()
+	public void Rdlc_engine_preserves_textbox_hyperlinks_for_all_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "hyperlink.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
-		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(Parameters: new Dictionary<string, object?> { ["TargetUrl"] = "https://example.com/rdlc" }));
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(Parameters: new Dictionary<string, object?> { ["TargetUrl"] = "https://example.com/rdlc?view=summary#section-2" }));
 
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 		string pdf = System.Text.Encoding.Latin1.GetString(new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span);
 
-		html.Should().Contain("href=\"https://example.com/rdlc\"").And.Contain("Open linked report");
-		pdf.Should().Contain("/URI").And.Contain("example.com/rdlc");
+		html.Should().Contain("href=\"https://example.com/rdlc?view=summary#section-2\"").And.Contain("Open linked report");
+		pdf.Should().Contain("/URI").And.Contain("example.com/rdlc?view=summary#section-2");
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using (var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read))
+		{
+			using var sheetReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+			sheetReader.ReadToEnd().Should().Contain("Open linked report").And.Contain("<hyperlink ref=\"A1\" r:id=\"rId1\"");
+			using var relationshipReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/_rels/sheet1.xml.rels")!.Open());
+			relationshipReader.ReadToEnd().Should().Contain("Target=\"https://example.com/rdlc?view=summary#section-2\"");
+		}
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using (var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read))
+		{
+			using var documentReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+			documentReader.ReadToEnd().Should().Contain("Open linked report").And.Contain("w:hyperlink");
+			using var relationshipReader = new StreamReader(wordArchive.GetEntry("word/_rels/document.xml.rels")!.Open());
+			relationshipReader.ReadToEnd().Should().Contain("Target=\"https://example.com/rdlc?view=summary#section-2\"");
+		}
 	}
 
 	[Fact]
-	public void Rdlc_engine_applies_parent_offsets_to_nested_report_items()
+	public void Rdlc_engine_preserves_relative_textbox_hyperlinks_in_openxml()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "hyperlink.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(Parameters: new Dictionary<string, object?> { ["TargetUrl"] = "/reports/detail" }));
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using (var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read))
+		using (var relationshipReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/_rels/sheet1.xml.rels")!.Open()))
+		{
+			relationshipReader.ReadToEnd().Should().Contain("Target=\"/reports/detail\"").And.Contain("TargetMode=\"External\"");
+		}
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using (var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read))
+		using (var relationshipReader = new StreamReader(wordArchive.GetEntry("word/_rels/document.xml.rels")!.Open()))
+		{
+			relationshipReader.ReadToEnd().Should().Contain("Target=\"/reports/detail\"").And.Contain("TargetMode=\"External\"");
+		}
+	}
+
+	[Fact]
+	public void Rdlc_engine_applies_parent_offsets_to_nested_report_items_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-items.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1462,15 +1559,40 @@ public sealed class SkiaRenderingTests
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
 		html.Should().Contain("Nested report item").And.Contain("x=\"56.693\"");
+		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain("Nested report item");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain("Nested report item");
 	}
 
 	[Fact]
-	public void Rdlc_engine_maps_text_color_and_writing_mode_to_renderers()
+	public void Rdlc_engine_maps_text_color_and_writing_mode_to_all_portable_renderers()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "styled-text.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
 		ReportDocument document = new RdlcReportEngine().CreateDocument(definition);
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		string expected = "\u7e26\u66f8\u304d styled text";
+		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelSheetReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelSheetReader.ReadToEnd().Should().Contain(expected).And.Contain("FF0000");
+		using var excelStylesReader = new StreamReader(excelArchive.GetEntry("xl/styles.xml")!.Open());
+		excelStylesReader.ReadToEnd().Should().Contain("textRotation");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain(expected).And.Contain("w:textDirection");
 
 		html.Should().Contain("fill=\"#FF0000\"").And.Contain("writing-mode=\"tb\"").And.Contain("縦書き styled text");
 	}
@@ -1504,7 +1626,7 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
-	public void Rdlc_engine_resolves_expression_image_values_through_the_injected_resolver()
+	public void Rdlc_engine_resolves_expression_image_values_through_the_injected_resolver_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "image-expression.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1513,11 +1635,25 @@ public sealed class SkiaRenderingTests
 			ImageResolver: new ExpressionImageResolver()));
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("data:image/png;base64,cG5n");
+		string expectedBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+		html.Should().Contain($"data:image/png;base64,{expectedBase64}");
+		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		excelArchive.GetEntry("xl/media/image1_1.png").Should().NotBeNull();
+		using (var relationshipReader = new StreamReader(excelArchive.GetEntry("xl/drawings/_rels/drawing1.xml.rels")!.Open()))
+			relationshipReader.ReadToEnd().Should().Contain("Target=\"../media/image1_1.png\"");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		wordArchive.GetEntry("word/media/image1.png").Should().NotBeNull();
+		using var wordRelationshipReader = new StreamReader(wordArchive.GetEntry("word/_rels/document.xml.rels")!.Open());
+		wordRelationshipReader.ReadToEnd().Should().Contain("Target=\"media/image1.png\"");
 	}
 
 	[Fact]
-	public void Rdlc_engine_resolves_expression_images_inside_tablix_cells()
+	public void Rdlc_engine_resolves_expression_images_inside_tablix_cells_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "tablix-image.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1526,11 +1662,29 @@ public sealed class SkiaRenderingTests
 			ImageResolver: new ExpressionImageResolver()));
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("Logo").And.Contain("data:image/png;base64,cG5n");
+		string expectedBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+		html.Should().Contain("Logo").And.Contain($"data:image/png;base64,{expectedBase64}");
+		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain("Logo");
+		excelArchive.GetEntry("xl/media/image1_1.png").Should().NotBeNull();
+		using (var relationshipReader = new StreamReader(excelArchive.GetEntry("xl/drawings/_rels/drawing1.xml.rels")!.Open()))
+			relationshipReader.ReadToEnd().Should().Contain("Target=\"../media/image1_1.png\"");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain("Logo");
+		wordArchive.GetEntry("word/media/image1.png").Should().NotBeNull();
+		using var wordRelationshipReader = new StreamReader(wordArchive.GetEntry("word/_rels/document.xml.rels")!.Open());
+		wordRelationshipReader.ReadToEnd().Should().Contain("Target=\"media/image1.png\"");
 	}
 
 	[Fact]
-	public void Rdlc_engine_resolves_safe_composite_field_and_parameter_expressions()
+	public void Rdlc_engine_resolves_safe_composite_field_and_parameter_expressions_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "composite-expression.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1539,11 +1693,23 @@ public sealed class SkiaRenderingTests
 			new Dictionary<string, object?> { ["Greeting"] = "Welcome" }));
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("Greeting: Welcome").And.Contain("Customer: Alpha - 7.00").And.Contain("Customer: Beta - High").And.Contain("Literal match");
+		string expected = "Greeting: Welcome";
+		html.Should().Contain(expected).And.Contain("Customer: Alpha - 7.00").And.Contain("Customer: Beta - High").And.Contain("Literal match");
+		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain(expected).And.Contain("Customer: Alpha - 7.00").And.Contain("Customer: Beta - High").And.Contain("Literal match");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain(expected).And.Contain("Customer: Alpha - 7.00").And.Contain("Customer: Beta - High").And.Contain("Literal match");
 	}
 
 	[Fact]
-	public void Rdlc_engine_resolves_allow_listed_string_functions()
+	public void Rdlc_engine_resolves_allow_listed_string_functions_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "string-functions.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1551,13 +1717,25 @@ public sealed class SkiaRenderingTests
 		{
 			["Items"] = new[] { new { Name = " Alpha " } }
 		}));
+		string expected = "Len=7 Trim=Alpha Upper= ALPHA  Lower= alpha ";
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("Len=7 Trim=Alpha Upper= ALPHA  Lower= alpha ");
+		html.Should().Contain(expected);
+		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain(expected);
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain(expected);
 	}
 
 	[Fact]
-	public void Rdlc_engine_resolves_safe_search_and_replace_string_functions()
+	public void Rdlc_engine_resolves_safe_string_functions_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "string-functions-advanced.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1565,9 +1743,56 @@ public sealed class SkiaRenderingTests
 		{
 			["Items"] = new[] { new { Name = "Alpha" } }
 		}));
+		string expected = "Index=3 Replace=AlPHa Mid=pha Left=Al Right=pha CStr=Alpha LongLeft=Alpha LongRight=Alpha";
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("Index=3 Replace=AlPHa Mid=pha").And.Contain("Malformed=");
+		html.Should().Contain(expected).And.Contain("Malformed= BadLeft= BadRight= BadCStr= UnsafeCStr= UnsafeLeft= UnsafeFormat=").And.NotContain("Code.Untrusted");
+		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain(expected).And.Contain("BadCStr=").And.Contain("UnsafeCStr=").And.Contain("UnsafeLeft=").And.Contain("UnsafeFormat=").And.NotContain("Code.Untrusted");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain(expected).And.Contain("BadCStr=").And.Contain("UnsafeCStr=").And.Contain("UnsafeLeft=").And.Contain("UnsafeFormat=").And.NotContain("Code.Untrusted");
+	}
+
+	[Fact]
+	public void Rdlc_engine_resolves_culture_aware_format_number_across_portable_outputs()
+	{
+		CultureInfo originalCulture = CultureInfo.CurrentCulture;
+		try
+		{
+			CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+			string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "format-number.rdlc");
+			using FileStream definition = File.OpenRead(fixturePath);
+			ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+			{
+				["Items"] = new[] { new { Amount = 1234.5m, Negative = -12.34m } }
+			}));
+
+			string expected = "Positive=1,234.50 Negative=-12.3 Malformed= TooMany=";
+			string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+			html.Should().Contain(expected);
+			new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+			ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+			using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+			using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+			excelReader.ReadToEnd().Should().Contain(expected);
+
+			ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+			using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+			using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+			wordReader.ReadToEnd().Should().Contain(expected);
+		}
+		finally
+		{
+			CultureInfo.CurrentCulture = originalCulture;
+		}
 	}
 
 	[Fact]
@@ -1581,13 +1806,31 @@ public sealed class SkiaRenderingTests
 		}));
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("Rows: 3 Total: 13 Min: 1 Max: 10");
+		string expected = "Rows: 3 Total: 13 Min: 1 Max: 10";
+		html.Should().Contain(expected);
 		html.IndexOf("Alpha", StringComparison.Ordinal).Should().BeLessThan(html.IndexOf("Beta", StringComparison.Ordinal));
 		html.IndexOf("Beta", StringComparison.Ordinal).Should().BeLessThan(html.IndexOf("Gamma", StringComparison.Ordinal));
+		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		string excelXml = excelReader.ReadToEnd();
+		excelXml.Should().Contain(expected);
+		excelXml.IndexOf("Alpha", StringComparison.Ordinal).Should().BeLessThan(excelXml.IndexOf("Beta", StringComparison.Ordinal));
+		excelXml.IndexOf("Beta", StringComparison.Ordinal).Should().BeLessThan(excelXml.IndexOf("Gamma", StringComparison.Ordinal));
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		string wordXml = wordReader.ReadToEnd();
+		wordXml.Should().Contain(expected);
+		wordXml.IndexOf("Alpha", StringComparison.Ordinal).Should().BeLessThan(wordXml.IndexOf("Beta", StringComparison.Ordinal));
+		wordXml.IndexOf("Beta", StringComparison.Ordinal).Should().BeLessThan(wordXml.IndexOf("Gamma", StringComparison.Ordinal));
 	}
 
 	[Fact]
-	public void Rdlc_engine_sorts_decimal_comma_values_numerically_in_current_culture()
+	public void Rdlc_engine_sorts_decimal_comma_values_numerically_in_current_culture_across_portable_outputs()
 	{
 		CultureInfo originalCulture = CultureInfo.CurrentCulture;
 		try
@@ -1608,6 +1851,21 @@ public sealed class SkiaRenderingTests
 
 			html.IndexOf("OnePointFive", StringComparison.Ordinal).Should().BeLessThan(html.IndexOf("Two", StringComparison.Ordinal));
 			html.IndexOf("Two", StringComparison.Ordinal).Should().BeLessThan(html.IndexOf("Ten", StringComparison.Ordinal));
+			new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+			ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+			using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+			using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+			string excelXml = excelReader.ReadToEnd();
+			excelXml.IndexOf("OnePointFive", StringComparison.Ordinal).Should().BeLessThan(excelXml.IndexOf("Two", StringComparison.Ordinal));
+			excelXml.IndexOf("Two", StringComparison.Ordinal).Should().BeLessThan(excelXml.IndexOf("Ten", StringComparison.Ordinal));
+
+			ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+			using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+			using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+			string wordXml = wordReader.ReadToEnd();
+			wordXml.IndexOf("OnePointFive", StringComparison.Ordinal).Should().BeLessThan(wordXml.IndexOf("Two", StringComparison.Ordinal));
+			wordXml.IndexOf("Two", StringComparison.Ordinal).Should().BeLessThan(wordXml.IndexOf("Ten", StringComparison.Ordinal));
 		}
 		finally
 		{
@@ -1616,7 +1874,7 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
-	public void Rdlc_engine_uses_group_scope_for_tablix_aggregates()
+	public void Rdlc_engine_uses_group_scope_for_tablix_aggregates_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "grouped-tablix.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1632,7 +1890,39 @@ public sealed class SkiaRenderingTests
 		}));
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("Category: A").And.Contain("Category: B").And.Contain("Region: X").And.Contain("Region: Y").And.Contain("Region: Z").And.Contain("Group: A (1/10)").And.Contain("Group: B (2/3)").And.Contain("Group: B (1/4)").And.Contain("Subtotal: A").And.Contain("Sum=10 Avg=10").And.Contain("Subtotal: B").And.Contain("Sum=3 Avg=1.5").And.Contain("Sum=4 Avg=4");
+		string[] expectedMarkers =
+		[
+			"Category: A",
+			"Category: B",
+			"Region: X",
+			"Region: Y",
+			"Region: Z",
+			"Group: A (1/10)",
+			"Group: B (2/3)",
+			"Group: B (1/4)",
+			"Subtotal: A",
+			"Sum=10 Avg=10",
+			"Subtotal: B",
+			"Sum=3 Avg=1.5",
+			"Sum=4 Avg=4"
+		];
+		foreach (string expectedMarker in expectedMarkers)
+			html.Should().Contain(expectedMarker);
+		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		string excelXml = excelReader.ReadToEnd();
+		foreach (string expectedMarker in expectedMarkers)
+			excelXml.Should().Contain(expectedMarker);
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		string wordXml = wordReader.ReadToEnd();
+		foreach (string expectedMarker in expectedMarkers)
+			wordXml.Should().Contain(expectedMarker);
 	}
 
 	[Fact]
@@ -1672,7 +1962,7 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
-	public void Rdlc_engine_resolves_first_last_and_count_scoped_aggregates()
+	public void Rdlc_engine_resolves_first_last_and_count_scoped_aggregates_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "scoped-aggregates.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1685,13 +1975,25 @@ public sealed class SkiaRenderingTests
 				new { Name = "Gamma", Amount = 3 }
 			}
 		}));
+		string expected = "First=Alpha Last=Gamma Count=3 Min=0 Max=10";
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("First=Alpha Last=Gamma Count=3 Min=0 Max=10");
+		html.Should().Contain(expected);
+		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain(expected);
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain(expected);
 	}
 
 	[Fact]
-	public void Rdlc_engine_omits_items_hidden_by_allow_listed_visibility_expression()
+	public void Rdlc_engine_omits_items_hidden_by_allow_listed_visibility_expression_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "visibility.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1701,6 +2003,19 @@ public sealed class SkiaRenderingTests
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
 		html.Should().Contain("Visible content").And.Contain("Tablix header").And.NotContain("Hidden content").And.NotContain("Hidden tablix content");
+		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		string excelXml = excelReader.ReadToEnd();
+		excelXml.Should().Contain("Visible content").And.Contain("Tablix header").And.NotContain("Hidden content").And.NotContain("Hidden tablix content");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		string wordXml = wordReader.ReadToEnd();
+		wordXml.Should().Contain("Visible content").And.Contain("Tablix header").And.NotContain("Hidden content").And.NotContain("Hidden tablix content");
 
 		using FileStream expandedDefinition = File.OpenRead(fixturePath);
 		ReportDocument expandedDocument = new RdlcReportEngine().CreateDocument(expandedDefinition, new RdlcDataContext(
@@ -1709,10 +2024,21 @@ public sealed class SkiaRenderingTests
 		string expandedHtml = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(expandedDocument, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
 		expandedHtml.Should().Contain("Hidden content").And.Contain("Hidden tablix content");
+		new SkiaPdfRenderer().Render(expandedDocument, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput expandedExcel = new ExcelOpenXmlRenderer().Render(expandedDocument, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var expandedExcelArchive = new ZipArchive(new MemoryStream(expandedExcel.Data.ToArray()), ZipArchiveMode.Read);
+		using var expandedExcelReader = new StreamReader(expandedExcelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		expandedExcelReader.ReadToEnd().Should().Contain("Hidden content").And.Contain("Hidden tablix content");
+
+		ReportOutput expandedWord = new WordOpenXmlRenderer().Render(expandedDocument, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var expandedWordArchive = new ZipArchive(new MemoryStream(expandedWord.Data.ToArray()), ZipArchiveMode.Read);
+		using var expandedWordReader = new StreamReader(expandedWordArchive.GetEntry("word/document.xml")!.Open());
+		expandedWordReader.ReadToEnd().Should().Contain("Hidden content").And.Contain("Hidden tablix content");
 	}
 
 	[Fact]
-	public void Rdlc_engine_renders_three_nested_row_group_levels()
+	public void Rdlc_engine_renders_three_nested_row_group_levels_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-grouped-tablix.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1728,11 +2054,38 @@ public sealed class SkiaRenderingTests
 		}));
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("Category: A (3, Sum=15)").And.Contain("Region: X (2, Sum=12)").And.Contain("Region: Y (1, Sum=3)").And.Contain("Segment: I (1, Sum=10)").And.Contain("Segment: II (1, Sum=2)").And.Contain("Category: B (1, Sum=4)").And.Contain("Detail: Delta").And.Contain("Subtotal: B = 4");
+		string[] expectedMarkers =
+		[
+			"Category: A (3, Sum=15)",
+			"Region: X (2, Sum=12)",
+			"Region: Y (1, Sum=3)",
+			"Segment: I (1, Sum=10)",
+			"Segment: II (1, Sum=2)",
+			"Category: B (1, Sum=4)",
+			"Detail: Delta",
+			"Subtotal: B = 4"
+		];
+		foreach (string expectedMarker in expectedMarkers)
+			html.Should().Contain(expectedMarker);
+		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		string excelXml = excelReader.ReadToEnd();
+		foreach (string expectedMarker in expectedMarkers)
+			excelXml.Should().Contain(expectedMarker);
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		string wordXml = wordReader.ReadToEnd();
+		foreach (string expectedMarker in expectedMarkers)
+			wordXml.Should().Contain(expectedMarker);
 	}
 
 	[Fact]
-	public void Rdlc_engine_starts_grouped_scopes_on_explicit_page_breaks()
+	public void Rdlc_engine_starts_grouped_scopes_on_explicit_page_breaks_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "grouped-pagebreak.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1748,6 +2101,19 @@ public sealed class SkiaRenderingTests
 
 		document.Pages.Should().HaveCount(2);
 		html.Should().Contain("Detail: Alpha").And.Contain("Detail: Beta");
+		AssertRendererPageCounts(document, 2);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var firstExcelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		using var secondExcelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet2.xml")!.Open());
+		string excelXml = firstExcelReader.ReadToEnd() + secondExcelReader.ReadToEnd();
+		excelXml.Should().Contain("Detail: Alpha").And.Contain("Detail: Beta");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain("Detail: Alpha").And.Contain("Detail: Beta");
 	}
 
 	[Fact]
@@ -1921,7 +2287,7 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
-	public void Rdlc_engine_resolves_embedded_images_through_the_injected_resolver()
+	public void Rdlc_engine_resolves_embedded_images_through_the_injected_resolver_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "image.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1931,6 +2297,70 @@ public sealed class SkiaRenderingTests
 
 		document.Pages.Should().ContainSingle();
 		html.Should().Contain("Embedded image").And.Contain("data:image/png;base64,");
+		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain("Embedded image");
+		excelArchive.GetEntry("xl/media/image1_1.png").Should().NotBeNull();
+		using (var relationshipReader = new StreamReader(excelArchive.GetEntry("xl/drawings/_rels/drawing1.xml.rels")!.Open()))
+			relationshipReader.ReadToEnd().Should().Contain("Target=\"../media/image1_1.png\"");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain("Embedded image");
+		wordArchive.GetEntry("word/media/image1.png").Should().NotBeNull();
+		using var wordRelationshipReader = new StreamReader(wordArchive.GetEntry("word/_rels/document.xml.rels")!.Open());
+		wordRelationshipReader.ReadToEnd().Should().Contain("Target=\"media/image1.png\"");
+	}
+
+	[Fact]
+	public void Rdlc_engine_preserves_clipped_embedded_image_bounds_and_crop_metadata_in_openxml()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "image-openxml-clipped.rdlc");
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(ImageResolver: new SkiaImageResolver()));
+
+		document.Pages.Should().ContainSingle();
+		foreach ((IReportRenderer renderer, ReportOutputFormat format) in new[]
+		{
+			((IReportRenderer)new ExcelOpenXmlRenderer(), ReportOutputFormat.ExcelOpenXml),
+			((IReportRenderer)new WordOpenXmlRenderer(), ReportOutputFormat.WordOpenXml)
+		})
+		{
+			ReportOutput output = renderer.Render(document, new ReportRenderOptions(format));
+			using var archive = new ZipArchive(new MemoryStream(output.Data.ToArray()), ZipArchiveMode.Read);
+			string entryName = format == ReportOutputFormat.ExcelOpenXml ? "xl/drawings/drawing1.xml" : "word/document.xml";
+			using var reader = new StreamReader(archive.GetEntry(entryName)!.Open());
+			string xml = reader.ReadToEnd();
+
+			if (format == ReportOutputFormat.ExcelOpenXml)
+			{
+				xml.Should().Contain("<xdr:ext cx=\"720000\" cy=\"720000\"")
+					.And.Contain("<a:srcRect r=\"50000\" b=\"50000\"")
+					.And.Contain("<xdr:ext cx=\"720000\" cy=\"360000\"")
+					.And.Contain("<a:srcRect l=\"50000\" t=\"50000\"");
+				using var relationshipReader = new StreamReader(archive.GetEntry("xl/drawings/_rels/drawing1.xml.rels")!.Open());
+				relationshipReader.ReadToEnd().Should().Contain("Target=\"../media/preview1.png\"")
+					.And.Contain("Target=\"../media/image1_1.png\"")
+					.And.Contain("Target=\"../media/image1_2.png\"");
+				xml.Should().Contain("r:embed=\"rId2\"").And.Contain("r:embed=\"rId3\"");
+			}
+			else
+			{
+				xml.Should().Contain("left:226.772pt;top:85.039pt;width:56.693pt;height:56.693pt")
+					.And.Contain("cropright=\"0.5\"").And.Contain("cropbottom=\"0.5\"")
+					.And.Contain("left:0pt;top:0pt;width:56.693pt;height:28.346pt")
+					.And.Contain("cropleft=\"0.5\"").And.Contain("croptop=\"0.5\"");
+				using var relationshipReader = new StreamReader(archive.GetEntry("word/_rels/document.xml.rels")!.Open());
+				relationshipReader.ReadToEnd().Should().Contain("Target=\"media/preview1.png\"")
+					.And.Contain("Target=\"media/image1.png\"")
+					.And.Contain("Target=\"media/image2.png\"");
+				xml.Should().Contain("r:id=\"rId1\"").And.Contain("r:id=\"rId2\"");
+			}
+		}
 	}
 
 	[Fact]
@@ -2245,7 +2675,7 @@ public sealed class SkiaRenderingTests
 		public RenderImage? Resolve(RenderImageRequest request)
 		{
 			request.Value.Should().Be("logo");
-			return new RenderImage(1, 1, "png"u8.ToArray());
+			return new RenderImage(1, 1, Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="));
 		}
 	}
 

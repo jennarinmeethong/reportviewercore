@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition">
+  <EmbeddedImages>
+    <EmbeddedImage Name="Pixel">
+      <MIMEType>image/png</MIMEType>
+      <ImageData>iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=</ImageData>
+    </EmbeddedImage>
+  </EmbeddedImages>
+  <ReportSections>
+    <ReportSection>
+      <Body>
+        <ReportItems>
+          <Textbox Name="Title">
+            <Top>0.2cm</Top><Left>0.2cm</Left><Width>4cm</Width><Height>0.6cm</Height>
+            <Paragraphs><Paragraph><TextRuns><TextRun><Value>Clipped OpenXML image</Value></TextRun></TextRuns></Paragraph></Paragraphs>
+          </Textbox>
+          <Image Name="EdgeImage">
+            <Source>Embedded</Source><Value>Pixel</Value><MIMEType>image/png</MIMEType>
+            <Top>3cm</Top><Left>8cm</Left><Width>4cm</Width><Height>4cm</Height>
+          </Image>
+          <Image Name="TopLeftImage">
+            <Source>Embedded</Source><Value>Pixel</Value><MIMEType>image/png</MIMEType>
+            <Top>-1cm</Top><Left>-2cm</Left><Width>4cm</Width><Height>2cm</Height>
+          </Image>
+        </ReportItems>
+      </Body>
+      <PageWidth>10cm</PageWidth><PageHeight>5cm</PageHeight>
+    </ReportSection>
+  </ReportSections>
+</Report>

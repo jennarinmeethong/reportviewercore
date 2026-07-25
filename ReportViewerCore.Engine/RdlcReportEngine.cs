@@ -1212,6 +1212,14 @@ public sealed class RdlcReportEngine
 			return atom[1..^1].Replace("\"\"", "\"", StringComparison.Ordinal);
 		}
 
+		if (atom.StartsWith("CStr(", StringComparison.OrdinalIgnoreCase) && atom.EndsWith(')'))
+		{
+			IReadOnlyList<string> arguments = SplitTopLevel(atom[5..^1], ',');
+			return arguments.Count == 1
+				? ResolveAtom(arguments[0], dataRow, context, scopeRows)
+				: string.Empty;
+		}
+
 		if (atom.StartsWith("Join(", StringComparison.OrdinalIgnoreCase) && atom.EndsWith(')'))
 		{
 			IReadOnlyList<string> arguments = SplitTopLevel(atom[5..^1], ',');
@@ -1278,6 +1286,23 @@ public sealed class RdlcReportEngine
 			return string.Empty;
 		}
 
+		if ((atom.StartsWith("Left(", StringComparison.OrdinalIgnoreCase) || atom.StartsWith("Right(", StringComparison.OrdinalIgnoreCase)) && atom.EndsWith(')'))
+		{
+			IReadOnlyList<string> arguments = SplitTopLevel(atom[(atom.IndexOf('(') + 1)..^1], ',');
+			if (arguments.Count == 2
+				&& int.TryParse(ResolveAtom(arguments[1], dataRow, context, scopeRows), NumberStyles.Integer, CultureInfo.CurrentCulture, out int length)
+				&& length >= 0)
+			{
+				string sourceText = ResolveAtom(arguments[0], dataRow, context, scopeRows);
+				int count = Math.Min(length, sourceText.Length);
+				return atom.StartsWith("Left(", StringComparison.OrdinalIgnoreCase)
+					? sourceText[..count]
+					: sourceText[(sourceText.Length - count)..];
+			}
+
+			return string.Empty;
+		}
+
 		if (atom.StartsWith("Mid(", StringComparison.OrdinalIgnoreCase) && atom.EndsWith(')'))
 		{
 			IReadOnlyList<string> arguments = SplitTopLevel(atom[4..^1], ',');
@@ -1328,6 +1353,20 @@ public sealed class RdlcReportEngine
 				{
 					return date.ToString(format, CultureInfo.CurrentCulture);
 				}
+			}
+
+			return string.Empty;
+		}
+
+		if (atom.StartsWith("FormatNumber(", StringComparison.OrdinalIgnoreCase) && atom.EndsWith(')'))
+		{
+			IReadOnlyList<string> arguments = SplitTopLevel(atom[13..^1], ',');
+			if (arguments.Count == 2
+				&& int.TryParse(ResolveAtom(arguments[1], dataRow, context, scopeRows), NumberStyles.Integer, CultureInfo.CurrentCulture, out int digits)
+				&& digits is >= 0 and <= 6
+				&& decimal.TryParse(ResolveAtom(arguments[0], dataRow, context, scopeRows), NumberStyles.Float, CultureInfo.CurrentCulture, out decimal number))
+			{
+				return number.ToString($"N{digits}", CultureInfo.CurrentCulture);
 			}
 
 			return string.Empty;

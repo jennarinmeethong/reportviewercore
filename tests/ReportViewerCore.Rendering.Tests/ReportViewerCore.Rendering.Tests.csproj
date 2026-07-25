@@ -36,6 +36,8 @@
     <None Include="..\fixtures\engine\styled-text.rdlc" Link="fixtures\engine\styled-text.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\international-text.rdlc" Link="fixtures\engine\international-text.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\image-expression.rdlc" Link="fixtures\engine\image-expression.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\image-openxml-clipped.rdlc" Link="fixtures\engine\image-openxml-clipped.rdlc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\engine\format-number.rdlc" Link="fixtures\engine\format-number.rdlc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\engine\tablix-image.rdlc" Link="fixtures\engine\tablix-image.rdlc" CopyToOutputDirectory="PreserveNewest" />
 		<None Include="..\fixtures\engine\composite-expression.rdlc" Link="fixtures\engine\composite-expression.rdlc" CopyToOutputDirectory="PreserveNewest" />
 		<None Include="..\fixtures\engine\string-functions.rdlc" Link="fixtures\engine\string-functions.rdlc" CopyToOutputDirectory="PreserveNewest" />
