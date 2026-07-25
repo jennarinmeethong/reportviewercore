@@ -1097,7 +1097,7 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
-	public void Rdlc_engine_renders_terminal_sibling_row_group_branches()
+	public void Rdlc_engine_renders_terminal_sibling_row_group_branches_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "sibling-group-branches.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1114,10 +1114,21 @@ public sealed class SkiaRenderingTests
 
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 		html.Should().Contain("Sibling branches").And.Contain("Category: A (2)").And.Contain("Category: B (1)").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Category detail: Alpha").And.Contain("Static interstitial section").And.Contain("Region detail: Gamma");
+		AssertRendererPageCounts(document, 1);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain("Sibling branches").And.Contain("Category: A (2)").And.Contain("Category: B (1)").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Category detail: Alpha").And.Contain("Static interstitial section").And.Contain("Region detail: Gamma");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain("Sibling branches").And.Contain("Category: A (2)").And.Contain("Category: B (1)").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Category detail: Alpha").And.Contain("Static interstitial section").And.Contain("Region detail: Gamma");
 	}
 
 	[Fact]
-	public void Rdlc_engine_renders_hierarchy_first_nested_member_trees_without_the_legacy_template_shape()
+	public void Rdlc_engine_renders_hierarchy_first_nested_member_trees_without_the_legacy_template_shape_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "arbitrary-nested-member-tree.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1137,10 +1148,30 @@ public sealed class SkiaRenderingTests
 			.And.Contain("Static member between branches").And.Contain("Region summary: X (2)").And.Contain("Region summary: Y (1)")
 			.And.Contain("Name summary: Alpha").And.Contain("Name summary: Beta").And.Contain("Name summary: Gamma");
 		html.Split("Nested static member").Should().HaveCount(3);
+		document.Pages.Should().HaveCount(1);
+		AssertRendererPageCounts(document, 1);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		string excelXml = excelReader.ReadToEnd();
+		excelXml.Should().Contain("Hierarchy-first member layout").And.Contain("Category summary: A (2)").And.Contain("Category summary: B (1)")
+			.And.Contain("Static member between branches").And.Contain("Region summary: X (2)").And.Contain("Region summary: Y (1)")
+			.And.Contain("Name summary: Alpha").And.Contain("Name summary: Beta").And.Contain("Name summary: Gamma");
+		excelXml.Split("Nested static member").Should().HaveCount(3);
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		string wordXml = wordReader.ReadToEnd();
+		wordXml.Should().Contain("Hierarchy-first member layout").And.Contain("Category summary: A (2)").And.Contain("Category summary: B (1)")
+			.And.Contain("Static member between branches").And.Contain("Region summary: X (2)").And.Contain("Region summary: Y (1)")
+			.And.Contain("Name summary: Alpha").And.Contain("Name summary: Beta").And.Contain("Name summary: Gamma");
+		wordXml.Split("Nested static member").Should().HaveCount(3);
 	}
 
 	[Fact]
-	public void Rdlc_engine_renders_sibling_row_group_branches_without_a_static_header()
+	public void Rdlc_engine_renders_sibling_row_group_branches_without_a_static_header_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "sibling-group-no-header.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1158,10 +1189,21 @@ public sealed class SkiaRenderingTests
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 		document.Pages.Should().HaveCount(1);
 		html.Should().Contain("Category: A (2)").And.Contain("Category: B (1)").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Category detail: Alpha").And.Contain("Region detail: Gamma").And.Contain("Grand total rows: 3");
+		AssertRendererPageCounts(document, 1);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain("Category: A (2)").And.Contain("Category: B (1)").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Category detail: Alpha").And.Contain("Region detail: Gamma").And.Contain("Grand total rows: 3");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain("Category: A (2)").And.Contain("Category: B (1)").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Category detail: Alpha").And.Contain("Region detail: Gamma").And.Contain("Grand total rows: 3");
 	}
 
 	[Fact]
-	public void Rdlc_engine_starts_sibling_branch_groups_on_explicit_page_breaks()
+	public void Rdlc_engine_starts_sibling_branch_groups_on_explicit_page_breaks_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "sibling-group-start-pagebreak.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1179,10 +1221,24 @@ public sealed class SkiaRenderingTests
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 		document.Pages.Should().HaveCount(3);
 		html.Should().Contain("Sibling start break").And.Contain("Category: A (2)").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Category detail: Gamma");
+		AssertRendererPageCounts(document, 3);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		string excelXml = string.Concat(
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open()).ReadToEnd(),
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet2.xml")!.Open()).ReadToEnd(),
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet3.xml")!.Open()).ReadToEnd());
+		excelXml.Should().Contain("Sibling start break").And.Contain("Category: A (2)").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Category detail: Gamma");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain("Sibling start break").And.Contain("Category: A (2)").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Category detail: Gamma");
 	}
 
 	[Fact]
-	public void Rdlc_engine_supports_start_and_end_sibling_branch_page_breaks()
+	public void Rdlc_engine_supports_start_and_end_sibling_branch_page_breaks_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "sibling-group-start-end-pagebreak.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1200,10 +1256,25 @@ public sealed class SkiaRenderingTests
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 		document.Pages.Should().HaveCount(4);
 		html.Should().Contain("Sibling start-and-end break").And.Contain("Category: A (2)").And.Contain("Static interstitial section").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Category detail: Gamma").And.Contain("Grand total rows: 3");
+		AssertRendererPageCounts(document, 4);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		string excelXml = string.Concat(
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open()).ReadToEnd(),
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet2.xml")!.Open()).ReadToEnd(),
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet3.xml")!.Open()).ReadToEnd(),
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet4.xml")!.Open()).ReadToEnd());
+		excelXml.Should().Contain("Sibling start-and-end break").And.Contain("Category: A (2)").And.Contain("Static interstitial section").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Category detail: Gamma").And.Contain("Grand total rows: 3");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain("Sibling start-and-end break").And.Contain("Category: A (2)").And.Contain("Static interstitial section").And.Contain("Region: X (2)").And.Contain("Region: Y (1)").And.Contain("Category detail: Gamma").And.Contain("Grand total rows: 3");
 	}
 
 	[Fact]
-	public void Rdlc_engine_propagates_nested_child_end_break_to_static_subtotal()
+	public void Rdlc_engine_propagates_nested_child_end_break_to_static_subtotal_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-sibling-child-end-pagebreak.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1221,10 +1292,25 @@ public sealed class SkiaRenderingTests
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 		document.Pages.Should().HaveCount(4);
 		html.Should().Contain("Nested child end break").And.Contain("Category: A").And.Contain("Category section: A").And.Contain("Category section: B").And.Contain("Category child wrapper: A").And.Contain("Category child wrapper: B").And.Contain("Region: X").And.Contain("Region: Y").And.Contain("Category subtotal: A (30)").And.Contain("Category subtotal: B (30)").And.Contain("Name detail: Gamma");
+		AssertRendererPageCounts(document, 4);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		string excelXml = string.Concat(
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open()).ReadToEnd(),
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet2.xml")!.Open()).ReadToEnd(),
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet3.xml")!.Open()).ReadToEnd(),
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet4.xml")!.Open()).ReadToEnd());
+		excelXml.Should().Contain("Nested child end break").And.Contain("Category: A").And.Contain("Category section: A").And.Contain("Category section: B").And.Contain("Category child wrapper: A").And.Contain("Category child wrapper: B").And.Contain("Region: X").And.Contain("Region: Y").And.Contain("Category subtotal: A (30)").And.Contain("Category subtotal: B (30)").And.Contain("Name detail: Gamma");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain("Nested child end break").And.Contain("Category: A").And.Contain("Category section: A").And.Contain("Category section: B").And.Contain("Category child wrapper: A").And.Contain("Category child wrapper: B").And.Contain("Region: X").And.Contain("Region: Y").And.Contain("Category subtotal: A (30)").And.Contain("Category subtotal: B (30)").And.Contain("Name detail: Gamma");
 	}
 
 	[Fact]
-	public void Rdlc_engine_renders_nested_sibling_row_group_branches()
+	public void Rdlc_engine_renders_nested_sibling_row_group_branches_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-sibling-group-branches.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1242,10 +1328,26 @@ public sealed class SkiaRenderingTests
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 		document.Pages.Should().HaveCount(8);
 		html.Should().Contain("Nested sibling branches").And.Contain("Category: A (2)").And.Contain("Category child section: A").And.Contain("Category child section: B").And.Contain("Region: X (1)").And.Contain("Region: Y (1)").And.Contain("Category subtotal: A (30)").And.Contain("Category subtotal: B (30)").And.Contain("Child name: Alpha (1)").And.Contain("Child name detail: Beta").And.Contain("Name: Alpha (1)").And.Contain("Nested detail: Gamma").And.Contain("Name detail: Beta").And.Contain("Grand total: 60");
+		AssertRendererPageCounts(document, 8);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		string excelXml = string.Empty;
+		foreach (int pageNumber in Enumerable.Range(1, 8))
+		{
+			using var reader = new StreamReader(excelArchive.GetEntry($"xl/worksheets/sheet{pageNumber}.xml")!.Open());
+			excelXml += reader.ReadToEnd();
+		}
+		excelXml.Should().Contain("Nested sibling branches").And.Contain("Category: A (2)").And.Contain("Category child section: A").And.Contain("Category child section: B").And.Contain("Region: X (1)").And.Contain("Region: Y (1)").And.Contain("Category subtotal: A (30)").And.Contain("Category subtotal: B (30)").And.Contain("Child name: Alpha (1)").And.Contain("Child name detail: Beta").And.Contain("Name: Alpha (1)").And.Contain("Nested detail: Gamma").And.Contain("Name detail: Beta").And.Contain("Grand total: 60");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain("Nested sibling branches").And.Contain("Category: A (2)").And.Contain("Category child section: A").And.Contain("Category child section: B").And.Contain("Region: X (1)").And.Contain("Region: Y (1)").And.Contain("Category subtotal: A (30)").And.Contain("Category subtotal: B (30)").And.Contain("Child name: Alpha (1)").And.Contain("Child name detail: Beta").And.Contain("Name: Alpha (1)").And.Contain("Nested detail: Gamma").And.Contain("Name detail: Beta").And.Contain("Grand total: 60");
 	}
 
 	[Fact]
-	public void Rdlc_engine_renders_nested_sibling_children_under_a_single_root_group()
+	public void Rdlc_engine_renders_nested_sibling_children_under_a_single_root_group_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-sibling-single-root.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1263,10 +1365,23 @@ public sealed class SkiaRenderingTests
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 		document.Pages.Should().HaveCount(2);
 		html.Should().Contain("Nested single root").And.Contain("Category: A (2)").And.Contain("Category: B (1)").And.Contain("Category section: A").And.Contain("Region: Y (1)").And.Contain("Category subtotal: B (30)").And.Contain("Child name: Alpha (1)").And.Contain("Child name detail: Gamma").And.Contain("Grand total: 60");
+		AssertRendererPageCounts(document, 2);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		string excelXml = string.Concat(
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open()).ReadToEnd(),
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet2.xml")!.Open()).ReadToEnd());
+		excelXml.Should().Contain("Nested single root").And.Contain("Category: A (2)").And.Contain("Category: B (1)").And.Contain("Category section: A").And.Contain("Region: Y (1)").And.Contain("Category subtotal: B (30)").And.Contain("Child name: Alpha (1)").And.Contain("Child name detail: Gamma").And.Contain("Grand total: 60");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain("Nested single root").And.Contain("Category: A (2)").And.Contain("Category: B (1)").And.Contain("Category section: A").And.Contain("Region: Y (1)").And.Contain("Category subtotal: B (30)").And.Contain("Child name: Alpha (1)").And.Contain("Child name detail: Gamma").And.Contain("Grand total: 60");
 	}
 
 	[Fact]
-	public void Rdlc_engine_renders_nested_sibling_children_without_a_static_header()
+	public void Rdlc_engine_renders_nested_sibling_children_without_a_static_header_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-sibling-single-root-no-header.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -1284,6 +1399,19 @@ public sealed class SkiaRenderingTests
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 		document.Pages.Should().HaveCount(2);
 		html.Should().Contain("Category: A (2)").And.Contain("Category: B (1)").And.Contain("Category section: A").And.Contain("Region: Y (1)").And.Contain("Category subtotal: B (30)").And.Contain("Child name: Alpha (1)").And.Contain("Child name detail: Gamma").And.Contain("Grand total: 60");
+		AssertRendererPageCounts(document, 2);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		string excelXml = string.Concat(
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open()).ReadToEnd(),
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet2.xml")!.Open()).ReadToEnd());
+		excelXml.Should().Contain("Category: A (2)").And.Contain("Category: B (1)").And.Contain("Category section: A").And.Contain("Region: Y (1)").And.Contain("Category subtotal: B (30)").And.Contain("Child name: Alpha (1)").And.Contain("Child name detail: Gamma").And.Contain("Grand total: 60");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain("Category: A (2)").And.Contain("Category: B (1)").And.Contain("Category section: A").And.Contain("Region: Y (1)").And.Contain("Category subtotal: B (30)").And.Contain("Child name: Alpha (1)").And.Contain("Child name detail: Gamma").And.Contain("Grand total: 60");
 	}
 
 	[Fact]
@@ -2117,7 +2245,7 @@ public sealed class SkiaRenderingTests
 	}
 
 	[Fact]
-	public void Rdlc_engine_applies_nested_group_pagebreak_only_at_its_scope_level()
+	public void Rdlc_engine_applies_nested_group_pagebreak_only_at_its_scope_level_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-group-pagebreak.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -2132,10 +2260,40 @@ public sealed class SkiaRenderingTests
 		}));
 
 		document.Pages.Should().HaveCount(2);
+		string[] expectedMarkers =
+		[
+			"Nested page breaks",
+			"Category: A",
+			"Category: B",
+			"Region: X",
+			"Region: Y",
+			"Detail: Alpha",
+			"Detail: Beta",
+			"Detail: Gamma"
+		];
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		foreach (string expectedMarker in expectedMarkers)
+			html.Should().Contain(expectedMarker);
+		AssertRendererPageCounts(document, 2);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		string excelXml = string.Concat(
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open()).ReadToEnd(),
+			new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet2.xml")!.Open()).ReadToEnd());
+		foreach (string expectedMarker in expectedMarkers)
+			excelXml.Should().Contain(expectedMarker);
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		string wordXml = wordReader.ReadToEnd();
+		foreach (string expectedMarker in expectedMarkers)
+			wordXml.Should().Contain(expectedMarker);
 	}
 
 	[Fact]
-	public void Rdlc_engine_supports_start_and_end_pagebreaks_on_linear_nested_groups()
+	public void Rdlc_engine_supports_start_and_end_pagebreaks_on_linear_nested_groups_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-group-start-end-pagebreak.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -2151,11 +2309,42 @@ public sealed class SkiaRenderingTests
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
 		document.Pages.Should().HaveCount(4);
-		html.Should().Contain("Nested start and end page breaks").And.Contain("Detail: Alpha").And.Contain("Detail: Beta").And.Contain("Detail: Gamma");
+		string[] expectedMarkers =
+		[
+			"Nested start and end page breaks",
+			"Category: A",
+			"Category: B",
+			"Region: X",
+			"Region: Y",
+			"Detail: Alpha",
+			"Detail: Beta",
+			"Detail: Gamma"
+		];
+		foreach (string expectedMarker in expectedMarkers)
+			html.Should().Contain(expectedMarker);
+		AssertRendererPageCounts(document, 4);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		string excelXml = string.Empty;
+		foreach (int pageNumber in Enumerable.Range(1, 4))
+		{
+			using var reader = new StreamReader(excelArchive.GetEntry($"xl/worksheets/sheet{pageNumber}.xml")!.Open());
+			excelXml += reader.ReadToEnd();
+		}
+		foreach (string expectedMarker in expectedMarkers)
+			excelXml.Should().Contain(expectedMarker);
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		string wordXml = wordReader.ReadToEnd();
+		foreach (string expectedMarker in expectedMarkers)
+			wordXml.Should().Contain(expectedMarker);
 	}
 
 	[Fact]
-	public void Rdlc_engine_repeats_static_detail_and_subtotal_rows_for_nested_groups()
+	public void Rdlc_engine_repeats_static_detail_and_subtotal_rows_for_nested_groups_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-group-static-detail-subtotal.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -2171,14 +2360,32 @@ public sealed class SkiaRenderingTests
 		}));
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("Detail: Alpha").And.Contain("Detail: Beta").And.Contain("Detail: Gamma").And.Contain("Detail: Delta")
-			.And.Contain("Region subtotal: 3").And.Contain("Category subtotal: 6").And.Contain("Category subtotal: 4").And.Contain("Grand total: 10");
-		html.Split("Region subtotal: 3").Should().HaveCount(3);
-		html.Split("Category subtotal: ").Should().HaveCount(3);
+		document.Pages.Should().HaveCount(1);
+		void AssertMarkers(string output)
+		{
+			output.Should().Contain("Nested static detail and subtotal").And.Contain("Detail: Alpha").And.Contain("Detail: Beta").And.Contain("Detail: Gamma").And.Contain("Detail: Delta")
+				.And.Contain("Category: A (6)").And.Contain("Category: B (4)").And.Contain("Region: X (2)").And.Contain("Region: Y (1)")
+				.And.Contain("Region subtotal: 3").And.Contain("Region subtotal: 4").And.Contain("Category subtotal: 6").And.Contain("Category subtotal: 4").And.Contain("Grand total: 10");
+			output.Split("Region subtotal: 3").Should().HaveCount(3);
+			output.Split("Category subtotal: ").Should().HaveCount(3);
+		}
+
+		AssertMarkers(html);
+		AssertRendererPageCounts(document, 1);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		AssertMarkers(excelReader.ReadToEnd());
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		AssertMarkers(wordReader.ReadToEnd());
 	}
 
 	[Fact]
-	public void Rdlc_engine_preserves_a_single_child_static_wrapper_and_root_total()
+	public void Rdlc_engine_preserves_a_single_child_static_wrapper_and_root_total_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-static-wrapper-single-child.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -2193,15 +2400,32 @@ public sealed class SkiaRenderingTests
 		}));
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("Nested static wrapper").And.Contain("Category: A").And.Contain("Category: B")
-			.And.Contain("Category wrapper").And.Contain("Region: X").And.Contain("Region: Y")
-			.And.Contain("Detail: Alpha").And.Contain("Detail: Beta").And.Contain("Detail: Gamma").And.Contain("Grand total rows: 3");
-		html.Split("Category wrapper").Should().HaveCount(3);
-		html.Split("Grand total rows: 3").Should().HaveCount(2);
+		document.Pages.Should().HaveCount(1);
+		void AssertMarkers(string output)
+		{
+			output.Should().Contain("Nested static wrapper").And.Contain("Category: A").And.Contain("Category: B")
+				.And.Contain("Category wrapper").And.Contain("Region: X").And.Contain("Region: Y")
+				.And.Contain("Detail: Alpha").And.Contain("Detail: Beta").And.Contain("Detail: Gamma").And.Contain("Grand total rows: 3");
+			output.Split("Category wrapper").Should().HaveCount(3);
+			output.Split("Grand total rows: 3").Should().HaveCount(2);
+		}
+
+		AssertMarkers(html);
+		AssertRendererPageCounts(document, 1);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		AssertMarkers(excelReader.ReadToEnd());
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		AssertMarkers(wordReader.ReadToEnd());
 	}
 
 	[Fact]
-	public void Rdlc_engine_recurses_through_static_wrappers_with_multiple_nested_dynamic_children()
+	public void Rdlc_engine_recurses_through_static_wrappers_with_multiple_nested_dynamic_children_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-static-wrapper-multiple-children.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -2218,15 +2442,32 @@ public sealed class SkiaRenderingTests
 
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("Nested multi-child wrapper").And.Contain("Category: A").And.Contain("Category: B")
-			.And.Contain("Region: X").And.Contain("Region: Y").And.Contain("Product: P1").And.Contain("Product: P2").And.Contain("Product: P3")
-			.And.Contain("Region leading row").And.Contain("Region footer: X (2)").And.Contain("Region footer: Y (1)").And.Contain("Grand total rows: 4");
-		html.Split("Category wrapper").Should().HaveCount(3);
-		html.Split("Region leading row").Should().HaveCount(4);
+		document.Pages.Should().HaveCount(1);
+		void AssertMarkers(string output)
+		{
+			output.Should().Contain("Nested multi-child wrapper").And.Contain("Category: A").And.Contain("Category: B")
+				.And.Contain("Region: X").And.Contain("Region: Y").And.Contain("Product: P1").And.Contain("Product: P2").And.Contain("Product: P3")
+				.And.Contain("Region leading row").And.Contain("Region footer: X (2)").And.Contain("Region footer: Y (1)").And.Contain("Grand total rows: 4");
+			output.Split("Category wrapper").Should().HaveCount(3);
+			output.Split("Region leading row").Should().HaveCount(4);
+		}
+
+		AssertMarkers(html);
+		AssertRendererPageCounts(document, 1);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		AssertMarkers(excelReader.ReadToEnd());
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		AssertMarkers(wordReader.ReadToEnd());
 	}
 
 	[Fact]
-	public void Rdlc_engine_keeps_null_group_keys_in_one_aggregate_scope()
+	public void Rdlc_engine_keeps_null_group_keys_in_one_aggregate_scope_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "grouped-null-keys.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -2241,11 +2482,32 @@ public sealed class SkiaRenderingTests
 		}));
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("Category=[] Rows=2").And.Contain("First=Null A").And.Contain("Last=Null B").And.Contain("Subtotal=3").And.Contain("Category=[A] Rows=1").And.Contain("Subtotal=5");
+		document.Pages.Should().HaveCount(1);
+		void AssertMarkers(string output)
+		{
+			output.Should().Contain("Null-key groups").And.Contain("Aggregate")
+				.And.Contain("Category=[] Rows=2").And.Contain("First=Null A").And.Contain("Last=Null B").And.Contain("Subtotal=3")
+				.And.Contain("Category=[A] Rows=1").And.Contain("First=Alpha").And.Contain("Last=Alpha").And.Contain("Subtotal=5")
+				.And.Contain("Detail: Null A").And.Contain("Detail: Null B").And.Contain("Detail: Alpha")
+				.And.Contain("Amount=1").And.Contain("Amount=2").And.Contain("Amount=5");
+		}
+
+		AssertMarkers(html);
+		AssertRendererPageCounts(document, 1);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		AssertMarkers(excelReader.ReadToEnd());
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		AssertMarkers(wordReader.ReadToEnd());
 	}
 
 	[Fact]
-	public void Rdlc_engine_renders_static_group_header_when_data_region_is_empty()
+	public void Rdlc_engine_renders_static_group_header_when_data_region_is_empty_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "grouped-null-keys.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -2257,10 +2519,21 @@ public sealed class SkiaRenderingTests
 
 		document.Pages.Should().HaveCount(1);
 		html.Should().Contain("Null-key groups").And.NotContain("Detail:");
+		AssertRendererPageCounts(document, 1);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain("Null-key groups").And.NotContain("Detail:");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain("Null-key groups").And.NotContain("Detail:");
 	}
 
 	[Fact]
-	public void Rdlc_engine_renders_no_rows_message_for_empty_tablix()
+	public void Rdlc_engine_renders_no_rows_message_for_empty_tablix_across_portable_outputs()
 	{
 		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "no-rows-message.rdlc");
 		using FileStream definition = File.OpenRead(fixturePath);
@@ -2272,18 +2545,19 @@ public sealed class SkiaRenderingTests
 
 		document.Pages.Should().ContainSingle();
 		html.Should().Contain("Empty state").And.Contain("No data available").And.NotContain("Detail:");
+		AssertRendererPageCounts(document, 1);
 		using var pdf = new SkiaPdfRenderer();
 		pdf.Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
 
 		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
 		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
 		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
-		excelReader.ReadToEnd().Should().Contain("No data available");
+		excelReader.ReadToEnd().Should().Contain("Empty state").And.Contain("No data available").And.NotContain("Detail:");
 
 		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
 		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
 		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
-		wordReader.ReadToEnd().Should().Contain("No data available");
+		wordReader.ReadToEnd().Should().Contain("Empty state").And.Contain("No data available").And.NotContain("Detail:");
 	}
 
 	[Fact]
@@ -2297,6 +2571,7 @@ public sealed class SkiaRenderingTests
 
 		document.Pages.Should().ContainSingle();
 		html.Should().Contain("Embedded image").And.Contain("data:image/png;base64,");
+		AssertRendererPageCounts(document, 1);
 		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
 
 		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
@@ -2324,6 +2599,7 @@ public sealed class SkiaRenderingTests
 		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(ImageResolver: new SkiaImageResolver()));
 
 		document.Pages.Should().ContainSingle();
+		AssertRendererPageCounts(document, 1);
 		foreach ((IReportRenderer renderer, ReportOutputFormat format) in new[]
 		{
 			((IReportRenderer)new ExcelOpenXmlRenderer(), ReportOutputFormat.ExcelOpenXml),
@@ -2373,6 +2649,7 @@ public sealed class SkiaRenderingTests
 			["Items"] = new[] { new { Name = "Alpha", Amount = 10 }, new { Name = "Beta", Amount = 20 } }
 		};
 		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(rows));
+		AssertRendererPageCounts(document, 1);
 
 		ReportOutput html = new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html));
 		System.Text.Encoding.UTF8.GetString(html.Data.Span).Should().Contain("Sales by item").And.Contain("Column trend").And.Contain("Report layout").And.Contain("Alpha").And.Contain("Beta").And.Contain("<rect").And.Contain("<line");
@@ -2412,6 +2689,7 @@ public sealed class SkiaRenderingTests
 		{
 			["Items"] = new[] { new { Name = "Alpha", Amount = 10 }, new { Name = "Beta", Amount = 20 }, new { Name = "Gamma", Amount = 5 } }
 		}));
+		AssertRendererPageCounts(document, 1);
 
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 		html.Should().Contain("Sales by item").And.Contain("Trend").And.Contain("Area trend").And.Contain("Share").And.Contain("Column trend").And.Contain("Share ring").And.Contain("<rect").And.Contain("<line").And.Contain("<polyline").And.Contain("<polygon").And.Contain("<path");

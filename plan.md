@@ -172,3 +172,45 @@ Latest loop slice: extended expression-backed tablix-cell image propagation acro
 Latest loop slice: extended embedded-image resolution across HTML/PDF/XLSX/DOCX with native Office media relationship checks.
 
 Latest loop slice: extended explicit grouped page-break coverage across HTML/PDF/XLSX/DOCX and made XLSX marker checks page-aware across `sheet1.xml` and `sheet2.xml`.
+
+Latest loop slice: extended sibling branch `Start` page-break coverage across HTML/PDF/XLSX/DOCX and aggregated markers across three XLSX page worksheets.
+
+Latest loop slice: extended sibling branch `StartAndEnd` page-break coverage across HTML/PDF/XLSX/DOCX and aggregated markers across four XLSX page worksheets.
+
+Latest loop slice: extended nested child `End` page-break coverage across HTML/PDF/XLSX/DOCX and aggregated wrapper/subtotal markers across four XLSX page worksheets.
+
+Latest loop slice: extended nested sibling branch coverage across HTML/PDF/XLSX/DOCX and aggregated branch/subtotal/detail markers across eight XLSX page worksheets.
+
+Latest loop slice: extended single-root nested sibling coverage across HTML/PDF/XLSX/DOCX and aggregated root/child/detail/total markers across two XLSX page worksheets.
+
+Latest loop slice: extended the single-root nested sibling no-static-header fixture across HTML/PDF/XLSX/DOCX and aggregated category/region/child/subtotal/detail/total markers across two XLSX page worksheets.
+
+Latest loop slice: extended terminal sibling-branch coverage across HTML/PDF/XLSX/DOCX with category/region/interstitial/detail markers and one-page parity checks.
+
+Latest loop slice: extended hierarchy-first nested-member-tree coverage across HTML/PDF/XLSX/DOCX with category/region/name summaries, repeated nested-static-member markers, and one-page parity checks.
+
+Latest loop slice: extended sibling row-group no-static-header coverage across HTML/PDF/XLSX/DOCX with category/region/detail/total markers and one-page parity checks.
+
+Latest loop slice: extended nested group page-break scope coverage across HTML/PDF/XLSX/DOCX with category/region/detail markers aggregated across two XLSX page worksheets.
+
+Latest loop slice: extended linear nested StartAndEnd page-break coverage across HTML/PDF/XLSX/DOCX with title/category/region/detail markers aggregated across four XLSX page worksheets.
+
+Latest loop slice: extended nested static detail/subtotal coverage across HTML/PDF/XLSX/DOCX with repeated region/category subtotal counts, detail markers, grand total, and one-page parity.
+
+Latest loop slice: extended single-child static-wrapper coverage across HTML/PDF/XLSX/DOCX with category/region/detail markers, wrapper occurrence counts, root total, and one-page parity.
+
+Latest loop slice: extended multi-child static-wrapper coverage across HTML/PDF/XLSX/DOCX with category/region/product branches, wrapper/leading-row occurrence counts, scoped footers, root total, and one-page parity.
+
+Latest loop slice: extended null group-key aggregate coverage across HTML/PDF/XLSX/DOCX with shared null-scope First/Last/Subtotal markers, detail/amount values, separate non-null grouping, and one-page parity.
+
+Latest loop slice: extended empty-data-region static-header coverage across HTML/PDF/XLSX/DOCX with title-presence/detail-omission assertions and one-page parity.
+
+Latest loop slice: hardened NoRowsMessage coverage across HTML/PDF/XLSX/DOCX with empty-state title/message presence, detail omission, and one-page parity assertions.
+
+Latest loop slice: hardened embedded-image coverage with shared HTML/PDF/XLSX/DOCX page parity alongside existing native Office media relationship checks.
+
+Latest loop slice: added shared one-page parity to clipped embedded-image crop/anchor coverage while retaining OpenXML-specific geometry, crop, and relationship assertions.
+
+Latest loop slice: added shared one-page parity to bar/column chart coverage while retaining native HTML, PDF, XLSX, and DOCX chart assertions.
+
+Latest loop slice: added shared one-page parity to line/area/pie/doughnut chart coverage while retaining native semantic chart assertions across HTML, PDF, XLSX, and DOCX.
