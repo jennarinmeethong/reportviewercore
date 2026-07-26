@@ -57,7 +57,11 @@ public sealed class SkiaFontResolver : IFontResolver, IDisposable
 			throw new FontNotFoundException(request.Family);
 		}
 
-		if (registered is null && !string.Equals(typeface.FamilyName, request.Family, StringComparison.OrdinalIgnoreCase))
+		// RDLC defaults to Arial; allow platform substitution for that default while rejecting
+		// accidental substitution for other explicitly requested families.
+		if (registered is null
+			&& !string.Equals(typeface.FamilyName, request.Family, StringComparison.OrdinalIgnoreCase)
+			&& !string.Equals(request.Family, "Arial", StringComparison.OrdinalIgnoreCase))
 		{
 			typeface.Dispose();
 			throw new FontNotFoundException(request.Family);
