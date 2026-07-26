@@ -717,6 +717,7 @@ public sealed class RdlcReportEngine
 			|| !members.Any(member => MemberContainsGroup(member, ns))
 			|| ReadSupportedSiblingGroupMembers(tablix, ns, rowTemplates).Count > 0
 			|| CountMemberTemplates(members, ns) != rowTemplates.Count
+			|| !HasSupportedStaticSiblingBoundaries(members, members.Where(member => MemberContainsGroup(member, ns)).ToArray(), ns)
 			|| members.Any(member => !IsSupportedGroupBranch(member, ns)))
 		{
 			return Array.Empty<XElement>();
@@ -922,6 +923,11 @@ public sealed class RdlcReportEngine
 		XElement? members = tablix.Element(ns + "TablixRowHierarchy")?.Element(ns + "TablixMembers");
 		XElement[] allMembers = members?.Elements(ns + "TablixMember").ToArray() ?? Array.Empty<XElement>();
 		XElement[] groupedMembers = allMembers.Where(member => MemberContainsGroup(member, ns)).ToArray();
+		if (!HasSupportedStaticSiblingBoundaries(allMembers, groupedMembers, ns))
+		{
+			return Array.Empty<XElement>();
+		}
+
 		bool hasLeadingStaticMember = allMembers.Length > 0 && !MemberContainsGroup(allMembers[0], ns);
 		bool hasTrailingStaticMember = allMembers.Length > (hasLeadingStaticMember ? 1 : 0) && !MemberContainsGroup(allMembers[^1], ns);
 		bool hasNestedMemberTree = groupedMembers.Length == 1 && HasNestedMemberTree(groupedMembers[0], ns);
@@ -936,6 +942,22 @@ public sealed class RdlcReportEngine
 
 		return contentMembers;
 	}
+
+	private static bool HasSupportedStaticSiblingBoundaries(IReadOnlyList<XElement> allMembers, IReadOnlyList<XElement> groupedMembers, XNamespace ns)
+	{
+		if (groupedMembers.Count == 0)
+		{
+			return true;
+		}
+
+		bool hasLeadingStaticMember = allMembers.Count > 0 && !MemberContainsGroup(allMembers[0], ns);
+		bool hasTrailingStaticMember = allMembers.Count > (hasLeadingStaticMember ? 1 : 0) && !MemberContainsGroup(allMembers[^1], ns);
+		return (!hasLeadingStaticMember || HasKeepWithGroup(allMembers[0], ns, "After"))
+			&& (!hasTrailingStaticMember || HasKeepWithGroup(allMembers[^1], ns, "Before"));
+	}
+
+	private static bool HasKeepWithGroup(XElement member, XNamespace ns, string expected) =>
+		string.Equals(member.Element(ns + "KeepWithGroup")?.Value.Trim(), expected, StringComparison.OrdinalIgnoreCase);
 
 	private static bool HasNestedMemberTree(XElement member, XNamespace ns)
 	{
@@ -1082,6 +1104,13 @@ public sealed class RdlcReportEngine
 		XElement? members = tablix.Element(ns + "TablixRowHierarchy")?.Element(ns + "TablixMembers");
 		if (members is not null)
 		{
+			XElement[] allMembers = members.Elements(ns + "TablixMember").ToArray();
+			XElement[] groupedMembers = allMembers.Where(member => MemberContainsGroup(member, ns)).ToArray();
+			if (!HasSupportedStaticSiblingBoundaries(allMembers, groupedMembers, ns))
+			{
+				throw new NotSupportedException("The constrained RDLC engine requires top-level static sibling boundaries to use KeepWithGroup='After' before and 'Before' after row-group branches.");
+			}
+
 			ValidateGroupMembers(members, ns);
 		}
 	}

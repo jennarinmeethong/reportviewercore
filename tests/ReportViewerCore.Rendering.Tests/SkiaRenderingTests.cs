@@ -1216,6 +1216,22 @@ public sealed class SkiaRenderingTests
 		createDocument.Should().Throw<NotSupportedException>().WithMessage("*sibling row-group branches*");
 	}
 
+	[Theory]
+	[InlineData("unsupported-static-sibling-boundary.rdlc")]
+	[InlineData("unsupported-static-leading-sibling-boundary.rdlc")]
+	public void Rdlc_engine_rejects_ambiguous_static_sibling_boundaries(string fixtureName)
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", fixtureName);
+		using FileStream definition = File.OpenRead(fixturePath);
+
+		Action createDocument = () => new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[] { new { Category = "A", Name = "Alpha" } }
+		}));
+
+		createDocument.Should().Throw<NotSupportedException>().WithMessage("*static sibling boundaries*KeepWithGroup*After*Before*");
+	}
+
 	[Fact]
 	public void Rdlc_engine_renders_terminal_sibling_row_group_branches_across_portable_outputs()
 	{
@@ -2523,6 +2539,175 @@ public sealed class SkiaRenderingTests
 		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
 		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
 		AssertMarkers(wordReader.ReadToEnd());
+	}
+
+	[Theory]
+	[InlineData("nested-static-detail-subtotal-sibling-branch.rdlc", true)]
+	[InlineData("nested-static-detail-subtotal-sibling-branch-no-header.rdlc", false)]
+	public void Rdlc_engine_composes_nested_static_detail_subtotals_with_a_sibling_branch_across_portable_outputs(string fixtureName, bool expectTitle)
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", fixtureName);
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = "A", Region = "X", Name = "Alpha", Amount = 10 },
+				new { Category = "A", Region = "X", Name = "Beta", Amount = 20 },
+				new { Category = "A", Region = "Y", Name = "Gamma", Amount = 30 },
+				new { Category = "B", Region = "Y", Name = "Delta", Amount = 40 }
+			}
+		}));
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+
+		document.Pages.Should().ContainSingle();
+		void AssertMarkers(string output)
+		{
+			if (expectTitle)
+				output.Should().Contain("Nested static detail/subtotal sibling branch");
+			else
+				output.Should().NotContain("Nested static detail/subtotal sibling branch");
+
+			output.Should().Contain("Category: A (3)").And.Contain("Category: B (1)")
+				.And.Contain("Category section: A").And.Contain("Category section: B").And.Contain("Region: X (2)").And.Contain("Region: Y (1)")
+				.And.Contain("Detail: Alpha").And.Contain("Detail: Beta").And.Contain("Detail: Gamma").And.Contain("Detail: Delta")
+				.And.Contain("Region subtotal: 30").And.Contain("Region subtotal: 40").And.Contain("Name: Alpha").And.Contain("Name: Beta")
+				.And.Contain("Name: Gamma").And.Contain("Name: Delta").And.Contain("Category subtotal: A (60)").And.Contain("Category subtotal: B (40)").And.Contain("Grand total: 100");
+			output.Split("Category section: ").Should().HaveCount(3);
+			output.Split("Region subtotal: ").Should().HaveCount(4);
+			output.Split("Category subtotal: ").Should().HaveCount(3);
+		}
+
+		AssertMarkers(html);
+		AssertRendererPageCounts(document, 1);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		AssertMarkers(excelReader.ReadToEnd());
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		AssertMarkers(wordReader.ReadToEnd());
+	}
+
+	[Theory]
+	[InlineData("nested-static-detail-subtotal-sibling-branch-end-pagebreak.rdlc", "Nested static detail/subtotal sibling End break", 4)]
+	[InlineData("nested-static-detail-subtotal-sibling-branch-start-end-pagebreak.rdlc", "Nested static detail/subtotal sibling StartAndEnd break", 6)]
+	public void Rdlc_engine_composes_nested_static_detail_subtotals_with_sibling_page_breaks_across_portable_outputs(string fixtureName, string title, int expectedPageCount)
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", fixtureName);
+		using FileStream definition = File.OpenRead(fixturePath);
+		ReportDocument document = new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+		{
+			["Items"] = new[]
+			{
+				new { Category = "A", Region = "X", Name = "Alpha", Amount = 10 },
+				new { Category = "A", Region = "X", Name = "Beta", Amount = 20 },
+				new { Category = "A", Region = "Y", Name = "Gamma", Amount = 30 },
+				new { Category = "B", Region = "Y", Name = "Delta", Amount = 40 }
+			}
+		}));
+
+		document.Pages.Should().HaveCount(expectedPageCount);
+		void AssertMarkers(string output)
+		{
+			output.Should().Contain(title).And.Contain("Category: A (3)").And.Contain("Category: B (1)")
+				.And.Contain("Category section: A").And.Contain("Category section: B").And.Contain("Region: X (2)").And.Contain("Region: Y (1)")
+				.And.Contain("Detail: Alpha").And.Contain("Detail: Beta").And.Contain("Detail: Gamma").And.Contain("Detail: Delta")
+				.And.Contain("Region subtotal: 30").And.Contain("Region subtotal: 40").And.Contain("Name: Alpha").And.Contain("Name: Beta")
+				.And.Contain("Name: Gamma").And.Contain("Name: Delta").And.Contain("Category subtotal: A (60)").And.Contain("Category subtotal: B (40)").And.Contain("Grand total: 100");
+			output.Split("Region subtotal: ").Should().HaveCount(4);
+			output.Split("Category subtotal: ").Should().HaveCount(3);
+		}
+
+		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+		AssertMarkers(html);
+		AssertRendererPageCounts(document, expectedPageCount);
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		string excelXml = string.Concat(Enumerable.Range(1, expectedPageCount).Select(pageNumber =>
+		{
+			using var reader = new StreamReader(excelArchive.GetEntry($"xl/worksheets/sheet{pageNumber}.xml")!.Open());
+			return reader.ReadToEnd();
+		}));
+		AssertMarkers(excelXml);
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		AssertMarkers(wordReader.ReadToEnd());
+	}
+
+	[Fact]
+	public void Rdlc_engine_composes_parameter_disabled_nested_static_detail_subtotal_sibling_page_breaks_across_portable_outputs()
+	{
+		string fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "engine", "nested-static-detail-subtotal-sibling-branch-start-end-pagebreak-disabled.rdlc");
+		ReportDocument CreateDocument(bool disablePageBreak)
+		{
+			using FileStream definition = File.OpenRead(fixturePath);
+			return new RdlcReportEngine().CreateDocument(definition, new RdlcDataContext(new Dictionary<string, IEnumerable>
+			{
+				["Items"] = new[]
+				{
+					new { Category = "A", Region = "X", Name = "Alpha", Amount = 10 },
+					new { Category = "A", Region = "X", Name = "Beta", Amount = 20 },
+					new { Category = "A", Region = "Y", Name = "Gamma", Amount = 30 },
+					new { Category = "B", Region = "Y", Name = "Delta", Amount = 40 }
+				}
+			}, new Dictionary<string, object?>
+			{
+				["DisablePageBreak"] = disablePageBreak
+			}));
+		}
+
+		ReportDocument enabled = CreateDocument(false);
+		ReportDocument disabled = CreateDocument(true);
+		const string title = "Nested static detail/subtotal sibling parameter-disabled StartAndEnd break";
+		void AssertMarkers(string output)
+		{
+			output.Should().Contain(title).And.Contain("Category: A (3)").And.Contain("Category: B (1)")
+				.And.Contain("Category section: A").And.Contain("Category section: B").And.Contain("Region: X (2)").And.Contain("Region: Y (1)")
+				.And.Contain("Detail: Alpha").And.Contain("Detail: Beta").And.Contain("Detail: Gamma").And.Contain("Detail: Delta")
+				.And.Contain("Region subtotal: 30").And.Contain("Region subtotal: 40").And.Contain("Name: Alpha").And.Contain("Name: Beta")
+				.And.Contain("Name: Gamma").And.Contain("Name: Delta").And.Contain("Category subtotal: A (60)").And.Contain("Category subtotal: B (40)").And.Contain("Grand total: 100");
+			output.Split("Region subtotal: ").Should().HaveCount(4);
+			output.Split("Category subtotal: ").Should().HaveCount(3);
+		}
+
+		enabled.Pages.Should().HaveCount(6);
+		disabled.Pages.Should().HaveCount(1);
+		AssertRendererPageCounts(enabled, 6);
+		AssertRendererPageCounts(disabled, 1);
+
+		foreach (ReportDocument document in new[] { enabled, disabled })
+		{
+			string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
+			AssertMarkers(html);
+
+			ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+			using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+			using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+			AssertMarkers(wordReader.ReadToEnd());
+		}
+
+		ReportOutput enabledExcel = new ExcelOpenXmlRenderer().Render(enabled, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using (var enabledExcelArchive = new ZipArchive(new MemoryStream(enabledExcel.Data.ToArray()), ZipArchiveMode.Read))
+		{
+			string excelXml = string.Concat(Enumerable.Range(1, 6).Select(pageNumber =>
+			{
+				using var reader = new StreamReader(enabledExcelArchive.GetEntry($"xl/worksheets/sheet{pageNumber}.xml")!.Open());
+				return reader.ReadToEnd();
+			}));
+			AssertMarkers(excelXml);
+		}
+
+		ReportOutput disabledExcel = new ExcelOpenXmlRenderer().Render(disabled, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var disabledExcelArchive = new ZipArchive(new MemoryStream(disabledExcel.Data.ToArray()), ZipArchiveMode.Read);
+		using var disabledExcelReader = new StreamReader(disabledExcelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		AssertMarkers(disabledExcelReader.ReadToEnd());
 	}
 
 	[Fact]
