@@ -496,12 +496,14 @@ internal static class OpenXmlPackageWriter
 		var sheetData = new XElement(Spreadsheet + "sheetData", allCells.GroupBy(cell => cell.Row).OrderBy(pair => pair.Key).Select(pair => new XElement(Spreadsheet + "row", new XAttribute("r", pair.Key), semanticCells.Any(cell => cell.Row == pair.Key) ? new XAttribute("hidden", 1) : null, pair.Select(cell => ExcelCell(cell.Column, pair.Key, cell.Text)))));
 		int maxRow = allCells.Count == 0 ? 1 : allCells.Max(cell => cell.Row + (cell.Text.TableCellBounds is not null ? cell.Text.RowSpan : 1) - 1);
 		int maxColumn = allCells.Count == 0 ? 1 : allCells.Max(cell => cell.Column + (cell.Text.TableCellBounds is not null ? cell.Text.ColumnSpan : 1) - 1);
-		var sheet = new XElement(Spreadsheet + "worksheet", new XAttribute(XNamespace.Xmlns + "r", OfficeDocument), new XElement(Spreadsheet + "dimension", new XAttribute("ref", $"A1:{ExcelColumn(maxColumn)}{maxRow}")), sheetData);
+		var sheet = new XElement(Spreadsheet + "worksheet", new XAttribute(XNamespace.Xmlns + "r", OfficeDocument), new XElement(Spreadsheet + "dimension", new XAttribute("ref", $"A1:{ExcelColumn(maxColumn)}{maxRow}")));
+		sheet.Add(new XElement(Spreadsheet + "sheetViews", new XElement(Spreadsheet + "sheetView", new XAttribute("workbookViewId", 0), new XElement(Spreadsheet + "showGridLines", new XAttribute("val", 0)))));
 		if (semanticCells.Count > 0)
 		{
 			int semanticStart = semanticCells.Min(cell => cell.Column);
-			sheet.Element(Spreadsheet + "dimension")!.AddAfterSelf(new XElement(Spreadsheet + "cols", new XElement(Spreadsheet + "col", new XAttribute("min", semanticStart), new XAttribute("max", maxColumn), new XAttribute("hidden", 1), new XAttribute("width", 12), new XAttribute("customWidth", 1))));
+			sheet.Element(Spreadsheet + "sheetViews")!.AddAfterSelf(new XElement(Spreadsheet + "cols", new XElement(Spreadsheet + "col", new XAttribute("min", semanticStart), new XAttribute("max", maxColumn), new XAttribute("hidden", 1), new XAttribute("width", 12), new XAttribute("customWidth", 1))));
 		}
+		sheet.Add(sheetData);
 		IReadOnlyList<string> mergedRanges = ExcelMergedRanges(cells);
 		if (mergedRanges.Count > 0)
 		{
@@ -512,7 +514,6 @@ internal static class OpenXmlPackageWriter
 		{
 			sheet.Add(new XElement(Spreadsheet + "hyperlinks", hyperlinks));
 		}
-		sheet.Add(new XElement(Spreadsheet + "sheetViews", new XElement(Spreadsheet + "sheetView", new XAttribute("workbookViewId", 0), new XElement(Spreadsheet + "showGridLines", new XAttribute("val", 0)))));
 		sheet.Add(new XElement(Spreadsheet + "drawing", new XAttribute(OfficeDocument + "id", $"rId{hyperlinks.Length + 1}")));
 		return sheet;
 	}
@@ -1125,7 +1126,7 @@ internal static class OpenXmlPackageWriter
 	{
 		return new XElement(Spreadsheet + "styleSheet",
 			new XElement(Spreadsheet + "numFmts", new XAttribute("count", 0)),
-			new XElement(Spreadsheet + "fonts", new XAttribute("count", 1), new XElement(Spreadsheet + "font", new XElement(Spreadsheet + "sz", new XAttribute("val", 11)), new XElement(Spreadsheet + "color", new XAttribute("theme", 1)), new XElement(Spreadsheet + "name", new XAttribute("val", "Arial")))),
+			new XElement(Spreadsheet + "fonts", new XAttribute("count", 1), new XElement(Spreadsheet + "font", new XElement(Spreadsheet + "sz", new XAttribute("val", 11)), new XElement(Spreadsheet + "color", new XAttribute("rgb", "FF000000")), new XElement(Spreadsheet + "name", new XAttribute("val", "Arial")))),
 			new XElement(Spreadsheet + "fills", new XAttribute("count", 2), new XElement(Spreadsheet + "fill", new XElement(Spreadsheet + "patternFill", new XAttribute("patternType", "none"))), new XElement(Spreadsheet + "fill", new XElement(Spreadsheet + "patternFill", new XAttribute("patternType", "gray125")))),
 			new XElement(Spreadsheet + "borders", new XAttribute("count", 1), new XElement(Spreadsheet + "border", new XElement(Spreadsheet + "left"), new XElement(Spreadsheet + "right"), new XElement(Spreadsheet + "top"), new XElement(Spreadsheet + "bottom"), new XElement(Spreadsheet + "diagonal"))),
 			new XElement(Spreadsheet + "cellStyleXfs", new XAttribute("count", 1), new XElement(Spreadsheet + "xf", new XAttribute("numFmtId", 0), new XAttribute("fontId", 0), new XAttribute("fillId", 0), new XAttribute("borderId", 0))),

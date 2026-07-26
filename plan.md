@@ -214,3 +214,19 @@ Latest loop slice: added shared one-page parity to clipped embedded-image crop/a
 Latest loop slice: added shared one-page parity to bar/column chart coverage while retaining native HTML, PDF, XLSX, and DOCX chart assertions.
 
 Latest loop slice: added shared one-page parity to line/area/pie/doughnut chart coverage while retaining native semantic chart assertions across HTML, PDF, XLSX, and DOCX.
+
+Latest loop slice: added shared one-page parity to the dedicated column-chart fixture while retaining its focused HTML/PDF/XLSX/DOCX chart assertions.
+
+Latest loop slice: completed 20 assertion-hardening slices across parameter, expression, layout, image, sorting, aggregate, visibility, nested-group, and chart regressions; all targeted slices and the full repository gate passed.
+
+Latest loop slice: completed 50 assertion-hardening slices across engine and low-level renderer tests; targeted blocks, 129 full tests, solution build, validators, and diff review passed, with HTML-placeholder-image and U+001F delimiter fixtures intentionally excluded from portable parity.
+
+Latest loop slice: investigated Excel openability across 46 generated XLSX packages, generated fresh cross-platform and feature-showcase diagnostics, added a dependency-free package graph validator, and removed the dangling default-font theme reference by emitting explicit ARGB black.
+
+Latest loop slice: reproduced Excel's repair dialog on the exact `artifacts/cross-platform/cross-platform-smoke.xlsx`, confirmed the SpreadsheetML child-order defect in `sheet1.xml`, corrected `sheetViews`/`cols`/`sheetData`/`hyperlinks` ordering, regenerated the requested artifact, and verified it opens in installed Excel without repair.
+
+Latest loop slice: added `.devbuddy/tools/clear_artifacts.py` as a standard-library, dry-run-by-default cleanup utility with exact-root and link-safety guards; current artifacts remain untouched until `--apply` is explicitly requested.
+
+Latest loop slice: added the Thai manual `.devbuddy/tools/clear_artifacts.th.md`, linked it from the reusable-tools index, and documented that artifact cleanup cannot by itself repair malformed Excel OpenXML.
+
+Latest loop slice: added the OpenXML preview-layer regression for semantic text, hyperlink, image, chart, and shape objects; targeted and full tests passed 130/130, and regenerated package, smoke, showcase, TRX, and cross-format evidence passed.

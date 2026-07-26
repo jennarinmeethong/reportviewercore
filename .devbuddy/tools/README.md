@@ -18,6 +18,16 @@ Index project-local tools here. Each entry should include purpose, runtime, comm
 - Command: `python3 .devbuddy/tools/validate_cross_format.py artifacts/feature-showcase` and `python3 .devbuddy/tools/validate_cross_format.py artifacts/feature-showcase/rdlc-feature-showcase`
 - Expected output: one passing line with four semantic formats, matching page counts, and the marker count; otherwise a non-zero exit identifies the mismatched format or malformed package.
 
+## `clear_artifacts.py`
+
+- Purpose: safely preview or remove generated files before a test/smoke run.
+- Runtime: Python 3 standard library only.
+- Dry-run command: `python3 .devbuddy/tools/clear_artifacts.py --summary`.
+- Apply command: `python3 .devbuddy/tools/clear_artifacts.py --apply`.
+- Preserve entries with repeatable `--keep NAME`, for example `--keep test-results --keep feature-showcase`.
+- Safety contract: deletion is opt-in, the repository's exact `artifacts` directory is the only accepted root, the root itself is never removed, and links/junctions are skipped.
+- Thai manual: `.devbuddy/tools/clear_artifacts.th.md`.
+
 ## Test result artifacts
 
 - Purpose: keep a shareable VSTest result beside generated smoke files.
