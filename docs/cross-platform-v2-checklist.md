@@ -11,7 +11,7 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] Constrained RDLC engine: tablixes, sorting, multi-level group scopes, headers/footers, subtotals, images, charts, hyperlinks, nested items, subreports, parameters, expressions, and pagination.
 - [x] `IReportPageSource`/`ReportPageSourceAdapter` seam for legacy RPL/SPB pagination.
 - [x] Windows display adapter and opt-in legacy `RenderPortable` bridges.
-- [x] 129 regression tests, 62 content-complete RDLC fixtures, RID publish workflow, seven `2.0.0-preview.1` packages, samples, and migration docs.
+- [x] 137 regression tests, 69 content-complete RDLC fixtures, RID publish workflow, seven `2.0.0-preview.1` packages, samples, and migration docs.
 - [x] Feature-showcase console project exports every portable file type plus manifests covering all positive canvas and RDLC-engine showcase features, including pagination, table spans, image crop, vector clipping, grouping, aggregates, headers/footers, visibility, hyperlinks, embedded images, and charts.
 - [x] Compare direct-canvas and RDLC showcase semantics across HTML/PDF/DOCX/XLSX, require matching page counts, parse every SVG, verify that every embedded Office page preview is byte-identical to its PNG source, and assert hyperlink targets across HTML/PDF/DOCX/XLSX plus native Office image/shape/chart metadata.
 - [x] Preserve basic charts, rectangles, and lines placed inside tablix cells with cell-column and repeated-row offsets.
