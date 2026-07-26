@@ -57,6 +57,12 @@ public sealed class SkiaFontResolver : IFontResolver, IDisposable
 			throw new FontNotFoundException(request.Family);
 		}
 
+		if (registered is null && !string.Equals(typeface.FamilyName, request.Family, StringComparison.OrdinalIgnoreCase))
+		{
+			typeface.Dispose();
+			throw new FontNotFoundException(request.Family);
+		}
+
 		return new SkiaFont(typeface, request.Size, registered?.Path);
 	}
 
