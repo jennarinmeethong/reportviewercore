@@ -1124,7 +1124,19 @@ public sealed class SkiaRenderingTests
 		AssertRendererPageCounts(document, document.Pages.Count);
 		string html = System.Text.Encoding.UTF8.GetString(new HtmlReportRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Html)).Data.Span);
 
-		html.Should().Contain("Regions: APAC, EMEA, NA");
+		string expected = "Regions: APAC, EMEA, NA";
+		html.Should().Contain(expected).And.Contain("Invalid=").And.Contain("Unsafe=").And.NotContain("Code.Untrusted");
+		new SkiaPdfRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.Pdf)).Data.Span[..5].ToArray().Should().Equal("%PDF-"u8.ToArray());
+
+		ReportOutput excel = new ExcelOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.ExcelOpenXml));
+		using var excelArchive = new ZipArchive(new MemoryStream(excel.Data.ToArray()), ZipArchiveMode.Read);
+		using var excelReader = new StreamReader(excelArchive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+		excelReader.ReadToEnd().Should().Contain(expected).And.Contain("Invalid=").And.Contain("Unsafe=").And.NotContain("Code.Untrusted");
+
+		ReportOutput word = new WordOpenXmlRenderer().Render(document, new ReportRenderOptions(ReportOutputFormat.WordOpenXml));
+		using var wordArchive = new ZipArchive(new MemoryStream(word.Data.ToArray()), ZipArchiveMode.Read);
+		using var wordReader = new StreamReader(wordArchive.GetEntry("word/document.xml")!.Open());
+		wordReader.ReadToEnd().Should().Contain(expected).And.Contain("Invalid=").And.Contain("Unsafe=").And.NotContain("Code.Untrusted");
 	}
 
 	[Fact]

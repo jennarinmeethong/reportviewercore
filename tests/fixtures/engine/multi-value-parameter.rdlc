@@ -3,5 +3,7 @@
   <ReportParameters><ReportParameter Name="Regions" DataType="String" MultiValue="true"><DefaultValues><DefaultValue>APAC</DefaultValue><DefaultValue>EMEA</DefaultValue></DefaultValues></ReportParameter></ReportParameters>
   <ReportSections><ReportSection><Body><ReportItems>
     <Textbox Name="Regions"><Left>0cm</Left><Top>0cm</Top><Width>18cm</Width><Height>1cm</Height><Paragraphs><Paragraph><TextRuns><TextRun><Value>="Regions: " &amp; Join(Parameters!Regions.Value, ", ")</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox>
+    <Textbox Name="InvalidJoin"><Left>0cm</Left><Top>1cm</Top><Width>18cm</Width><Height>1cm</Height><Paragraphs><Paragraph><TextRuns><TextRun><Value>="Invalid=" &amp; Join(Parameters!Regions.Value)</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox>
+    <Textbox Name="UnsafeJoin"><Left>0cm</Left><Top>2cm</Top><Width>18cm</Width><Height>1cm</Height><Paragraphs><Paragraph><TextRuns><TextRun><Value>="Unsafe=" &amp; Join(Code.Untrusted(), ",")</Value></TextRun></TextRuns></Paragraph></Paragraphs></Textbox>
   </ReportItems></Body><PageWidth>21cm</PageWidth><PageHeight>29.7cm</PageHeight></ReportSection></ReportSections>
 </Report>

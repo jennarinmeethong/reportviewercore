@@ -230,3 +230,5 @@ Latest loop slice: added `.devbuddy/tools/clear_artifacts.py` as a standard-libr
 Latest loop slice: added the Thai manual `.devbuddy/tools/clear_artifacts.th.md`, linked it from the reusable-tools index, and documented that artifact cleanup cannot by itself repair malformed Excel OpenXML.
 
 Latest loop slice: added the OpenXML preview-layer regression for semantic text, hyperlink, image, chart, and shape objects; targeted and full tests passed 130/130, and regenerated package, smoke, showcase, TRX, and cross-format evidence passed.
+
+Latest loop slice: extended the existing multi-value `Join` fixture with malformed-arity and unsupported-code cases, then asserted the allow-listed result and fail-closed security behavior across HTML, PDF, XLSX, and DOCX; targeted 2/2 and full 130/130 tests passed.
