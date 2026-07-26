@@ -25,7 +25,7 @@ Use this document as the handoff plan for the next coding session. The current i
 - [x] Implement a Windows-only adapter that maps text, images, lines, rectangles, links, dynamic chart/map streams, and page decorations to `IReportPageSource`; tablix cells and nested containers are traversed while snapshotting lazy RPL queues.
 - [x] Keep the adapter isolated from portable packages; the net10 WinForms `CreatePortableDocument` path invokes legacy RPL only after the constrained engine throws `NotSupportedException` or `InvalidDataException`.
 - [x] Add golden legacy-bridge comparison fixtures; both samples assert required semantic text and golden portable page counts, and Windows runs also compare legacy page counts. The WinForms case uses an explicitly loaded subreport to exercise RPL fallback.
-- [ ] Run the real legacy-vs-v2 semantic/page-count comparisons on `windows-latest`; builds and CI artifact upload are wired, execution remains environment-dependent.
+- [x] Run the real legacy-vs-v2 semantic/page-count comparisons on `windows-latest`; the hosted WinForms adapter job passed both bridge smoke paths.
 - [x] Add golden legacy-vs-v2 semantic/page-count expectations shared by both bridge samples; Windows execution remains a hosted-runner check.
 - [x] Execute both legacy bridge comparisons on the current Windows host; the hosted `windows-latest` job remains the final independent confirmation.
 
