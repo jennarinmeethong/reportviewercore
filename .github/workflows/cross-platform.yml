@@ -3,6 +3,7 @@ name: Cross-platform v2
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   portable:
