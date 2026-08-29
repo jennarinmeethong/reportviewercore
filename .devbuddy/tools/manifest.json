@@ -1,0 +1,10 @@
+{
+  "files": {
+    "bootstrap_knowledge.py": "d4a31d650d2b071495a92236af8eece56314704cc5a188c1d5d6581765511344",
+    "init_project_memory.py": "b20f0e10bb4a2e803daf35f3d1d8f413439c7c341c2ce16b8ff0183f7ea2835e",
+    "task_memory.py": "674968ae0bd23eac7f3fd3fcf99530f9347c0a22bd2e50bf344df7cf06eeffc4",
+    "validate_knowledge.py": "da9d90893d90793df5926ad1ee8662a381026f1bb2fb511dff339b14e1bca344",
+    "validate_project_settings.py": "eb041f50091706cfa2e0117a2fb1fc9ecc5ad1d5f619891c29a221e6c7cc9f3f"
+  },
+  "tool_version": "1"
+}
